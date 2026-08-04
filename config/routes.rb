@@ -25,6 +25,11 @@ Rails.root.glob("{gems,vendor}/plugins/*/config/pre_routes.rb") do |pre_routes|
 end
 
 CanvasRails::Application.routes.draw do
+  get "memury", to: "memury#index", as: :memury
+  get "memury/state", to: "memury#state", as: :memury_state
+  post "memury/sync", to: "memury#sync", as: :memury_sync
+  patch "memury/action", to: "memury#action", as: :memury_action
+
   # Test-only routes for Selenium tests with mock LTI tool
   if Rails.env.test?
     post "/test/mock_lti/ui", to: "test/mock_lti#ui"

@@ -21,6 +21,7 @@ const featureBundles: {
 } = {
   // TODO: move these into ui/boot/initializers/router.tsx
   accessibility_checker: () => import('./features/accessibility/accessibility_checker/index'),
+  memury: () => import('./features/memury/index'),
   accessibility_course_statistics: () =>
     import('./features/accessibility/accessibility_course_statistics/index'),
   account_admin_tools: () => import('./features/account_admin_tools/index'),

@@ -11,6 +11,7 @@
 # That's what .git/info/exclude and core.excludesfile are for :)
 .bundle/
 .env
+/.env.memury
 .mutagen
 .swc
 .idea/
