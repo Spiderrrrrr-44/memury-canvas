@@ -56,7 +56,7 @@ function App() {
   if (error) return <Alert variant="error">{error}</Alert>
   if (!state) return <Spinner renderTitle={I18n.t('正在加载 Memury')}/>
   return <View as="main" maxWidth="1100px" margin="0 auto" padding="large">
-    <Heading level="h1">{I18n.t('Memury 学脉')}</Heading><Text>{I18n.t('目标感知自适应学习 Agent · 非 Instructure 官方功能')}</Text>
+    <Heading level="h1">{I18n.t('Memury')}</Heading><Text>{I18n.t('目标感知自适应学习 Agent · 非 Instructure 官方功能')}</Text>
     {state.demo_mode && <Alert variant="info" margin="medium 0">{I18n.t('当前为可靠 Demo 模式：模拟 SIS 与预置题目均有明确标注，不是在线模型生成。')}</Alert>}
     <View as="section" padding="medium" borderWidth="small" borderRadius="medium"><Heading level="h2">{I18n.t('下一最佳学习行动')}</Heading><Text size="large" weight="bold">{state.next_action.course} · {state.next_action.title}</Text><br/><Text>{state.next_action.why}</Text><br/><Button color="primary" margin="small 0" onClick={async () => setState(await syncState())}>{I18n.t('立即同步并重新规划')}</Button><Text size="small"> {I18n.t('上次同步：')} {new Date(state.last_synced_at).toLocaleString()}</Text></View>
     <View as="section" margin="large 0"><Heading level="h2">{I18n.t('概念掌握状态')}</Heading><Text>{state.concept.name} · {Math.round(state.concept.confidence * 100)}% {I18n.t('判断置信度')}</Text><ProgressBar screenReaderLabel={I18n.t('概念掌握度')} valueNow={state.concept.mastery * 100}/></View>

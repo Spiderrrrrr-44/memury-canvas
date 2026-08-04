@@ -6,7 +6,7 @@ class MemuryController < ApplicationController
   before_action :load_profile
 
   def index
-    @page_title = t("Memury 学脉")
+    @page_title = t("Memury")
     js_bundle :memury
     js_env MEMURY: { demo_mode: demo_mode?, api_url: memury_state_path }
     render html: "<div id=\"memury-root\"></div>".html_safe, layout: true
