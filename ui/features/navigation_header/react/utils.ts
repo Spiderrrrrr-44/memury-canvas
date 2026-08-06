@@ -76,11 +76,12 @@ export type ActiveTray =
   | 'groups'
   | 'help'
   | 'history'
+  | 'memury'
   | 'profile'
 
 const EXTERNAL_TOOLS_REGEX = /^\/accounts\/[^\/]*\/(external_tools)/
 const ACTIVE_ROUTE_REGEX =
-  /^\/(courses|groups|accounts|grades|calendar|conversations|profile)|^#history/
+  /^\/(courses|groups|accounts|grades|calendar|conversations|memury|profile)|^#history/
 export function getActiveItem(): ActiveTray | '' {
   const path = window.location.pathname
   const toolId = window.location.search.split('toolId=')

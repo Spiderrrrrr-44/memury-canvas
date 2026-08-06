@@ -28,6 +28,7 @@ CanvasRails::Application.routes.draw do
   get "memury", to: "memury#index", as: :memury
   get "memury/state", to: "memury#state", as: :memury_state
   post "memury/sync", to: "memury#sync", as: :memury_sync
+  post "memury/reset", to: "memury#reset", as: :memury_reset
   patch "memury/action", to: "memury#action", as: :memury_action
 
   # Test-only routes for Selenium tests with mock LTI tool
