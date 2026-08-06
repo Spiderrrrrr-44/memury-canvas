@@ -1,3 +1,21 @@
+/*
+ * Copyright (C) 2026 - present Instructure, Inc.
+ *
+ * This file is part of Canvas.
+ *
+ * Canvas is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the Free
+ * Software Foundation, version 3 of the License.
+ *
+ * Canvas is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */
+
 import doFetchApi from '@canvas/do-fetch-api-effect'
 import type {MemuryState} from './types'
 
@@ -13,8 +31,31 @@ export async function syncState(): Promise<MemuryState> {
   return json
 }
 
+export async function resetState(): Promise<MemuryState> {
+  const {json} = await doFetchApi<MemuryState>({path: '/memury/reset', method: 'POST'})
+  if (!json) throw new Error('Memury reset returned no state')
+  return json
+}
+
 export async function sendAction(body: Record<string, unknown>): Promise<MemuryState> {
   const {json} = await doFetchApi<MemuryState>({path: '/memury/action', method: 'PATCH', body})
   if (!json) throw new Error('Memury action returned no state')
   return json
 }
+/*
+ * Copyright (C) 2026 - present Instructure, Inc.
+ *
+ * This file is part of Canvas.
+ *
+ * Canvas is free software: you can redistribute it and/or modify it under
+ * the terms of the GNU Affero General Public License as published by the Free
+ * Software Foundation, version 3 of the License.
+ *
+ * Canvas is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR
+ * A PARTICULAR PURPOSE. See the GNU Affero General Public License for more
+ * details.
+ *
+ * You should have received a copy of the GNU Affero General Public License along
+ * with this program. If not, see <http://www.gnu.org/licenses/>.
+ */

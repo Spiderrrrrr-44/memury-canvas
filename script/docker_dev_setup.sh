@@ -34,7 +34,7 @@ os_setup
 message 'Now we can set up Canvas!'
 copy_docker_config
 setup_docker_compose_override
-build_images
+# build_images  # temporarily skipped: images already built
 docker_compose_up
 build_assets
 create_db

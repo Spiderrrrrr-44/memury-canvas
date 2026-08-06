@@ -4,7 +4,7 @@ require "spec_helper"
 
 describe Memury::Connectors::CanvasNativeConnector do
   it "only returns courses in the current student's active enrollments" do
-    student_in_course
+    student_in_course(active_all: true)
     visible = @course
     hidden = course_factory(active_all: true)
     assignment_model(course: visible, due_at: 1.day.from_now)

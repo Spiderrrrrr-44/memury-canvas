@@ -88,6 +88,7 @@ interface ISideNav {
 
 const SideNav: React.FC<ISideNav> = ({externalTools = []}) => {
   const [collapseSideNav, setCollapseSideNav] = useState(window.ENV.SETTINGS.collapse_global_nav)
+  const showMemury = useMemo(() => Boolean(document.getElementById('global_nav_memury_link')), [])
   const [state, dispatch] = useReducer(sideNavReducer, initialState)
   const {isTrayOpen, activeTray, selectedNavItem, previousSelectedNavItem} = state
   const processedTools = useMemo(() => filterAndProcessTools(externalTools), [externalTools])
@@ -345,6 +346,19 @@ const SideNav: React.FC<ISideNav> = ({externalTools = []}) => {
             }}
             minimized={collapseSideNav}
           />
+          {showMemury && (
+            <SideNavBar.Item
+              id="memury-tray"
+              icon={<IconCalendarMonthLine />}
+              label={I18n.t('Memury')}
+              href="/memury"
+              onClick={() => handleActiveTray('memury')}
+              selected={selectedNavItem === 'memury'}
+              data-selected={selectedNavItem === 'memury'}
+              themeOverride={{fontWeight: 400}}
+              minimized={collapseSideNav}
+            />
+          )}
           <SideNavBar.Item
             id="courses-tray"
             icon={<IconCoursesLine />}

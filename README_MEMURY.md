@@ -30,21 +30,36 @@ docker compose run --rm web yarn build:watch
 
 The migration creates `memury_learner_profiles`, a user-scoped JSONB aggregate for learner state, evidence, decision logs, and study plans.
 
-## Feature Flag and Demo seed
+## Feature Flag and formal Demo data
 
-The RootAccount Feature Flag key is `memury`. The included task enables it for `Account.default` and initializes deterministic Memury state for an existing Canvas login:
+The RootAccount Feature Flag key is `memury`. The included idempotent task enables it for `Account.default` and prepares the complete local recording dataset:
 
 ```bash
 docker compose run --rm -e LOGIN=memury.student@example.test web bundle exec rake memury:demo_seed
 ```
 
-Before running the task, create `memury.student@example.test` through the normal Canvas development setup and enroll that user as a student in the courses you want to synchronize. To use another existing login, set `LOGIN` accordingly.
+The task creates or refreshes:
 
-The task is idempotent for the selected user: rerunning it resets that user's Memury profile instead of creating duplicate Memury records. It does not create a Canvas account, courses, assignments, or enrollments.
+- the `memury.student@example.test` Canvas login without overwriting an existing password;
+- one active student enrollment in `工程力学基础（Memury Demo）`;
+- three published assignments with deadlines;
+- one submitted and two unsubmitted assignment states;
+- the deterministic Memury learner profile and feature flag.
+
+For a newly created login, set a private password once from WSL. Input is hidden and is passed to Rails only through standard input; it is not stored in shell history, command arguments, logs, or this repository:
+
+```bash
+cd /home/lenovo/memury-canvas-runtime
+bash script/memury_set_demo_password
+```
+
+Do not place the password in `.env.memury`, a command argument, documentation, screenshots, or chat. To use another existing login, set `LOGIN` for both commands.
+
+The seed is safe to rerun: it reuses the login, course, enrollment, and same-title assignments instead of creating duplicates. It resets only that user's Memury profile and refreshes relative deadlines.
 
 ## Real and simulated data
 
-After the student selects **立即同步并重新规划** in the interface, `CanvasNativeConnector` reads:
+After the student selects **同步 Canvas 并重新规划** in the interface, `CanvasNativeConnector` reads:
 
 - the signed-in user's active student enrollments;
 - published assignments with deadlines in those courses;
@@ -64,13 +79,14 @@ Memury-generated study blocks are inferred data. Rescheduled blocks are labeled 
 
 ## Demo walkthrough
 
-1. Sign in as the configured student.
+1. Sign out of the administrator session and sign in as `memury.student@example.test` using the locally configured private password.
 2. Open **Memury** from Canvas global navigation.
-3. Select **立即同步并重新规划**.
-4. Review the next action, task-risk timeline, simulated SIS events, and study blocks.
-5. Start the diagnostic flow, answer the minimal verification question, optionally request a hint, and complete the transfer question.
-6. Review the evidence-backed mastery change and replanned study blocks.
-7. Refresh the page to confirm that the profile persists.
+3. Select **重置 Demo**, then **同步 Canvas 并重新规划**. Confirm the summary says **1 门课程，3 项作业**.
+4. Review the real Canvas assignment marked **正式**, the single next-best action, explainable risk ordering, simulated SIS events, and three Study Blocks.
+5. Start Recall and intentionally choose the wrong answer. Review candidate causes before answering the minimal verification question.
+6. Request one or more progressive hints, enter Transfer, and choose the correct transfer answer.
+7. Return home to show the mastery update, lower target risk, and new next-best action.
+8. Refresh to confirm persistence, then use **重置 Demo** to restore the initial state.
 
 See the [three-minute demo script](docs/memury/DEMO_SCRIPT.md) for the exact presentation path.
 
@@ -80,17 +96,23 @@ Run these after the Canvas Docker environment is fully initialized:
 
 ```bash
 docker compose run --rm web bin/rspec \
+  spec/services/memury/risk_engine_spec.rb \
   spec/services/memury/priority_scorer_spec.rb \
   spec/services/memury/learner_state_updater_spec.rb \
-  spec/services/memury/connectors/canvas_native_connector_spec.rb
+  spec/services/memury/connectors/canvas_native_connector_spec.rb \
+  spec/controllers/memury_controller_spec.rb
 
+docker compose run --rm web yarn eslint \
+  ui/features/memury/api.ts \
+  ui/features/memury/index.tsx \
+  ui/features/memury/types.ts --no-cache
 docker compose run --rm web yarn check:ts
 docker compose run --rm web yarn webpack-development
 ```
 
 Also execute the migration, frontend build, browser walkthrough, keyboard/accessibility review, and a manual check that official grades remain unchanged.
 
-These RSpec, frontend build, TypeScript, browser E2E, and accessibility checks have **not yet been executed** in the current Windows workspace because Docker, Ruby, Yarn, and installed dependencies were unavailable. Only static repository, diff, credential, grade-write, randomness, and required-file checks have been completed here.
+The P0 runtime pass has been verified in Windows + WSL2 + Docker Desktop: Memury RSpec, navigation Vitest, targeted ESLint, full TypeScript checking, development asset compilation, and the authenticated browser walkthrough all pass. The walkthrough covers Canvas navigation, Canvas/Demo SIS sync, wrong-answer diagnosis, progressive hints, Transfer, visible replanning, refresh persistence, and Demo reset. For a login with no active student enrollments, the sync summary correctly reports zero Canvas courses and assignments while retaining the clearly labeled simulated fallback timeline.
 
 ## Further documentation
 

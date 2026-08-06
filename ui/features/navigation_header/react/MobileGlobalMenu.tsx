@@ -67,6 +67,7 @@ type Props = {
 
 export default function MobileGlobalMenu(props: Props) {
   const showGroups = useMemo(() => Boolean(document.getElementById('global_nav_groups_link')), [])
+  const showMemury = useMemo(() => Boolean(document.getElementById('global_nav_memury_link')), [])
   const countsEnabled = Boolean(
     window.ENV.current_user_id && !window.ENV.current_user?.fake_student,
   )
@@ -160,6 +161,21 @@ export default function MobileGlobalMenu(props: Props) {
             </Flex>
           </Link>
         </List.Item>
+
+        {showMemury && (
+          <List.Item>
+            <Link href="/memury" isWithinText={false} display="block">
+              <Flex>
+                <Flex.Item width="3rem">
+                  <IconCalendarMonthLine inline={false} size="small" />
+                </Flex.Item>
+                <Flex.Item>
+                  <Text size="medium">{I18n.t('Memury')}</Text>
+                </Flex.Item>
+              </Flex>
+            </Link>
+          </List.Item>
+        )}
 
         <List.Item>
           {current_user && Object.keys(current_user).length > 0 ? (
