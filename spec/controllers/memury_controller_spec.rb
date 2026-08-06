@@ -49,4 +49,34 @@ describe MemuryController do
     expect(reset.dig("concept", "mastery")).to eq(0.42)
     expect(reset.fetch("completed_assignment_ids")).to be_empty
   end
+
+  it "prefers a real Canvas assignment over a same-title simulated fallback" do
+    connector = instance_double(
+      Memury::Connectors::CanvasNativeConnector,
+      call: {
+        courses: [{ id: 42, name: "工程力学基础（Memury Demo）" }],
+        assignments: [{
+          id: 101,
+          course_id: 42,
+          course_name: "工程力学基础（Memury Demo）",
+          title: "受力分析作业 2",
+          due_at: 36.hours.from_now.iso8601,
+          submitted: false,
+          source_platform: "Canvas",
+          source_object_id: 101,
+          official_or_inferred: "Official",
+          confidence: 1.0
+        }],
+        synced_at: Time.zone.now.iso8601
+      }
+    )
+    allow(Memury::Connectors::CanvasNativeConnector).to receive(:new).and_return(connector)
+
+    post :reset, format: :json
+    post :sync, format: :json
+
+    matching = response.parsed_body.fetch("assignments").select { |item| item["title"] == "受力分析作业 2" }
+    expect(matching.length).to eq(1)
+    expect(matching.first).to include("source_platform" => "Canvas", "official_or_inferred" => "Official")
+  end
 end

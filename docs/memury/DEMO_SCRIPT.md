@@ -2,15 +2,17 @@
 
 ## 录制前
 
-1. 登录 Canvas，在 Memury 页面点击“重置 Demo”。
-2. 关闭无关窗口，浏览器保持能看到 Canvas 全局导航和主内容的尺寸。
-3. 准备从 Canvas 控制面板开始录制；演示数据不依赖外部 API Key。
+1. 在 WSL 的 `/home/lenovo/memury-canvas-runtime` 运行 `docker compose up -d postgres redis web jobs`。
+2. 运行 `docker compose run --rm -e LOGIN=memury.student@example.test web bundle exec rake memury:demo_seed`，确认输出为 1 门课程、3 项作业、1 个已提交和 2 个未提交。
+3. 首次使用时运行 `bash script/memury_set_demo_password`，在隐藏提示中设置密码；不要把密码放进命令、文档、截图或聊天。
+4. 退出管理员账号，以 `memury.student@example.test` 登录。在 Memury 页面依次点击“重置 Demo”和“同步 Canvas 并重新规划”，确认摘要为“1 门课程，3 项作业”。
+5. 再点击一次“重置 Demo”，返回 Canvas 控制面板作为录制起点。关闭无关窗口，浏览器保持能看到全局导航和主内容的尺寸。
 
 ## 0:00–0:35｜从 Canvas 进入并理解全局
 
 1. 从 Canvas 全局导航点击“Memury”。
-2. 点击“同步 Canvas 并重新规划”。指出同步摘要、只读 Demo SIS 课表和三天内的工程力学考试。
-3. 展示按风险排序的任务，强调每项都有截止、未提交、考试、掌握度和近期活动等可解释原因，并明确标注正式、推断或模拟来源。
+2. 点击“同步 Canvas 并重新规划”。指出真实摘要“1 门课程，3 项作业”、只读 Demo SIS 课表和三天内的工程力学考试。
+3. 展示真实 Canvas 的“受力分析作业 2”标记为“正式”，并强调截止、未提交、考试、掌握度和近期活动等可解释原因。
 
 ## 0:35–1:00｜选择唯一行动
 

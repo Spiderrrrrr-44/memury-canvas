@@ -86,8 +86,12 @@ class MemuryController < ApplicationController
   end
 
   def merge_assignments(existing, canvas_assignments)
-    simulated = existing.select { |item| item["official_or_inferred"] == "Simulated" }
-    (canvas_assignments.map(&:stringify_keys) + simulated).uniq do |item|
+    canvas = canvas_assignments.map(&:stringify_keys)
+    official_titles = canvas.pluck("title").to_set
+    simulated = existing.select do |item|
+      item["official_or_inferred"] == "Simulated" && !official_titles.include?(item["title"])
+    end
+    (canvas + simulated).uniq do |item|
       [item["source_platform"], item["source_object_id"]]
     end
   end
