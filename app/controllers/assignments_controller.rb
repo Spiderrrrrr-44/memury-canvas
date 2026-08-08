@@ -571,6 +571,7 @@ class AssignmentsController < ApplicationController
         else
           css_bundle :assignments
           js_bundle :assignment_show
+          js_bundle :memury if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user)
         end
 
         mastery_scales_js_env

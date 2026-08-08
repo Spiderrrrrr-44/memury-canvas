@@ -16,25 +16,33 @@
  * with this program. If not, see <http://www.gnu.org/licenses/>.
  */
 
-import React, {useCallback, useEffect, useState} from 'react'
+import React, {useCallback, useEffect, useRef, useState} from 'react'
 import {createRoot} from 'react-dom/client'
+import {ScreenReaderContent} from '@instructure/ui-a11y-content'
 import {Alert} from '@instructure/ui-alerts'
 import {Badge} from '@instructure/ui-badge'
 import {Button} from '@instructure/ui-buttons'
 import {Heading} from '@instructure/ui-heading'
 import {ProgressBar} from '@instructure/ui-progress'
 import {Spinner} from '@instructure/ui-spinner'
-import {Table} from '@instructure/ui-table'
+import {TextArea} from '@instructure/ui-text-area'
 import {Text} from '@instructure/ui-text'
 import {View} from '@instructure/ui-view'
 import {useScope as createI18nScope} from '@canvas/i18n'
 import {getState, resetState, sendAction, syncState} from './api'
-import type {Assignment, MemuryState, StudyBlock} from './types'
+import {
+  CourseDirectory,
+  MemuryContextSurface,
+  MemuryToday,
+} from './surfaces'
+import type {MemuryContext, MemuryState} from './types'
 
 const I18n = createI18nScope('memury')
 
 function Source({kind}: {kind: string}) {
   const labels: Record<string, string> = {
+    ai: I18n.t('智能诊断'),
+    rule_fallback: I18n.t('规则回退'),
     Official: I18n.t('正式'),
     Inferred: I18n.t('推断'),
     Simulated: I18n.t('模拟'),
@@ -43,171 +51,36 @@ function Source({kind}: {kind: string}) {
   return <Badge count={1} formatOutput={() => labels[kind] || kind} standalone />
 }
 
-function RiskLabel({assignment}: {assignment: Assignment}) {
-  const level =
-    assignment.risk >= 0.7
-      ? I18n.t('高风险')
-      : assignment.risk >= 0.45
-        ? I18n.t('中风险')
-        : I18n.t('低风险')
-  return (
-    <Text weight="bold">
-      {level} · {Math.round(assignment.risk * 100)}
-    </Text>
-  )
-}
-
-function NextAction({
-  state,
-  busy,
-  act,
+function DiagnosisPanel({
+  diagnostic,
 }: {
-  state: MemuryState
-  busy: boolean
-  act: (body: Record<string, unknown>) => void
+  diagnostic: NonNullable<MemuryState['diagnostic']>
 }) {
-  const action = state.next_action
-  if (!action)
-    return <Alert variant="info">{I18n.t('当前没有待安排的学习行动。同步 Canvas 后再试。')}</Alert>
-
+  const answerJudgmentLabels: Record<string, string> = {
+    correct: I18n.t('正确'),
+    incorrect: I18n.t('需补强'),
+    uncertain: I18n.t('证据不足'),
+  }
   return (
-    <View as="section" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
-      <Text size="small">{I18n.t('唯一推荐')}</Text>
-      <Heading level="h2">{I18n.t('下一最佳学习行动')}</Heading>
-      <Text size="large" weight="bold">
-        {action.course} · {action.title}
+    <View as="section" padding="small" borderWidth="small" borderRadius="small" margin="small 0">
+      <Text size="small">
+        {I18n.t('诊断来源')}{' '}
+        <Source kind={diagnostic.source === 'ai' ? 'ai' : 'rule_fallback'} />
       </Text>
-      <View as="ul" margin="small 0">
-        {action.reasons.map(reason => (
-          <li key={reason}>
-            <Text>{reason}</Text>
+      <Heading level="h3">{I18n.t('错因诊断')}</Heading>
+      <Text weight="bold">{diagnostic.diagnosis_summary}</Text>
+      <br />
+      <Text size="small">
+        {I18n.t('置信度')} {Math.round(diagnostic.confidence * 100)}% ·{' '}
+        {answerJudgmentLabels[diagnostic.answer_judgment] || diagnostic.answer_judgment}
+      </Text>
+      <View as="ul" margin="small 0 0">
+        {diagnostic.evidence.map(item => (
+          <li key={item}>
+            <Text size="small">{item}</Text>
           </li>
         ))}
       </View>
-      <Text>
-        {I18n.t('预计 %{minutes} 分钟完成 Recall → Repair → Transfer。', {
-          minutes: action.estimated_minutes,
-        })}
-      </Text>
-      <br />
-      <Button
-        color="primary"
-        margin="small 0 0"
-        disabled={busy}
-        onClick={() => act({event: 'start_study_block', assignment_id: action.assignment_id})}
-      >
-        {I18n.t('开始三段式学习')}
-      </Button>
-    </View>
-  )
-}
-
-function RiskList({assignments}: {assignments: Assignment[]}) {
-  if (assignments.length === 0)
-    return <Alert variant="info">{I18n.t('尚无任务。请先同步 Canvas。')}</Alert>
-
-  return (
-    <View as="section" margin="large 0">
-      <Heading level="h2">{I18n.t('课程风险排序')}</Heading>
-      <Table caption={I18n.t('按风险从高到低排列的课程任务')} margin="small 0">
-        <Table.Head>
-          <Table.Row>
-            <Table.ColHeader id="risk">{I18n.t('风险')}</Table.ColHeader>
-            <Table.ColHeader id="task">{I18n.t('任务')}</Table.ColHeader>
-            <Table.ColHeader id="reason">{I18n.t('为什么')}</Table.ColHeader>
-            <Table.ColHeader id="source">{I18n.t('来源')}</Table.ColHeader>
-          </Table.Row>
-        </Table.Head>
-        <Table.Body>
-          {assignments.map(item => (
-            <Table.Row key={`${item.source_platform}-${item.id}`}>
-              <Table.Cell>
-                <RiskLabel assignment={item} />
-              </Table.Cell>
-              <Table.Cell>
-                <Text weight="bold">
-                  {item.course_name} · {item.title}
-                </Text>
-                <br />
-                <Text size="small">DDL {new Date(item.due_at).toLocaleString()}</Text>
-              </Table.Cell>
-              <Table.Cell>
-                <View as="ul" margin="0">
-                  {item.risk_reasons.map(reason => (
-                    <li key={reason}>
-                      <Text size="small">{reason}</Text>
-                    </li>
-                  ))}
-                </View>
-              </Table.Cell>
-              <Table.Cell>
-                <Text size="small">{item.source_platform}</Text>
-                <br />
-                <Source kind={item.official_or_inferred} />
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </Table>
-    </View>
-  )
-}
-
-function StudyCalendar({
-  state,
-  busy,
-  act,
-}: {
-  state: MemuryState
-  busy: boolean
-  act: (body: Record<string, unknown>) => void
-}) {
-  const defer = (block: StudyBlock) =>
-    act({
-      event: 'reschedule_block',
-      block_id: block.id,
-      starts_at: new Date(new Date(block.starts_at).getTime() + 86_400_000).toISOString(),
-      duration_minutes: block.duration_minutes,
-    })
-
-  return (
-    <View as="section" margin="large 0">
-      <Heading level="h2">{I18n.t('三段式 Study Block')}</Heading>
-      <Table caption={I18n.t('Recall、Repair 和 Transfer 学习块')} margin="small 0">
-        <Table.Head>
-          <Table.Row>
-            <Table.ColHeader id="stage">{I18n.t('阶段')}</Table.ColHeader>
-            <Table.ColHeader id="time">{I18n.t('计划')}</Table.ColHeader>
-            <Table.ColHeader id="status">{I18n.t('状态')}</Table.ColHeader>
-            <Table.ColHeader id="action">{I18n.t('操作')}</Table.ColHeader>
-          </Table.Row>
-        </Table.Head>
-        <Table.Body>
-          {state.study_blocks.map(block => (
-            <Table.Row key={block.id}>
-              <Table.Cell>
-                <Text weight="bold">{block.title}</Text>
-              </Table.Cell>
-              <Table.Cell>
-                {new Date(block.starts_at).toLocaleString()} · {block.duration_minutes}{' '}
-                {I18n.t('分钟')}
-              </Table.Cell>
-              <Table.Cell>
-                {block.status} · <Source kind={block.official_or_inferred} />
-              </Table.Cell>
-              <Table.Cell>
-                <Button
-                  size="small"
-                  disabled={busy || block.status === 'completed'}
-                  onClick={() => defer(block)}
-                >
-                  {I18n.t('顺延一天')}
-                </Button>
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </Table>
     </View>
   )
 }
@@ -216,33 +89,42 @@ function LearningFlow({
   state,
   busy,
   act,
+  returnHome,
+  draftAnswer,
+  setDraftAnswer,
 }: {
   state: MemuryState
   busy: boolean
   act: (body: Record<string, unknown>) => void
+  returnHome: () => void
+  draftAnswer: string
+  setDraftAnswer: (value: string) => void
 }) {
   const session = state.learning_session || {}
+
   if (state.phase === 'recall')
     return (
       <View as="section" padding="medium" background="secondary" margin="large 0">
-        <Heading level="h2">{I18n.t('1 · Recall：先回忆，不看答案')}</Heading>
-        <Text>
-          {I18n.t('一本书静止在桌面上。桌面对书的支持力与书对桌面的压力是一对平衡力吗？')}
-        </Text>
-        <br />
-        <Button
-          margin="small 0"
+        <Heading level="h2">{I18n.t('1 · Recall：先用自己的话回答')}</Heading>
+        <Text>{session.recall_question || I18n.t('一本书静止在桌面上。')}</Text>
+        <TextArea
+          label={<ScreenReaderContent>{I18n.t('学生回答')}</ScreenReaderContent>}
+          placeholder={I18n.t('请输入你的判断和理由')}
+          autoGrow={false}
+          resize="vertical"
+          inline={false}
+          value={draftAnswer}
+          onChange={event => setDraftAnswer(event.target.value)}
           disabled={busy}
-          onClick={() => act({event: 'answer_recall', correct: false})}
-        >
-          {I18n.t('是，它们大小相等方向相反')}
-        </Button>{' '}
+          height="120px"
+          margin="small 0"
+        />
         <Button
           color="primary"
-          disabled={busy}
-          onClick={() => act({event: 'answer_recall', correct: true})}
+          disabled={busy || draftAnswer.trim().length === 0}
+          onClick={() => act({event: 'answer_recall', student_answer: draftAnswer})}
         >
-          {I18n.t('不是，它们作用在不同物体上')}
+          {I18n.t('提交回答')}
         </Button>
       </View>
     )
@@ -250,24 +132,33 @@ function LearningFlow({
   if (state.phase === 'verify')
     return (
       <View as="section" padding="medium" background="secondary" margin="large 0">
-        <Heading level="h2">{I18n.t('2 · Repair：先验证错因')}</Heading>
-        <Heading level="h3">{I18n.t('候选错因（尚未定论）')}</Heading>
-        <View as="ul">
-          {state.hypotheses?.map(item => (
-            <li key={item.name}>
-              {item.name} · {Math.round(item.confidence * 100)}%
-            </li>
-          ))}
-        </View>
-        <Text>{I18n.t('最小验证题：与桌面对书的支持力构成作用力—反作用力的是哪一个力？')}</Text>
-        <br />
-        <Button
-          color="primary"
-          margin="small 0"
-          disabled={busy}
-          onClick={() => act({event: 'answer_verification'})}
-        >
-          {I18n.t('书对桌面的压力')}
+        <Heading level="h2">{I18n.t('2 · Diagnose：先确认错因')}</Heading>
+        {state.diagnostic ? (
+          <DiagnosisPanel diagnostic={state.diagnostic} />
+        ) : (
+          <Alert variant="info">{I18n.t('当前没有可展示的智能诊断。')}</Alert>
+        )}
+        <Text weight="bold">
+          {I18n.t('验证问题：%{question}', {
+            question: state.diagnostic?.verification_question || I18n.t('请解释你的判断理由。'),
+          })}
+        </Text>
+        {state.hypotheses?.length ? (
+          <>
+            <Heading level="h3">{I18n.t('候选错因')}</Heading>
+            <View as="ul">
+              {state.hypotheses.map(item => (
+                <li key={item.name}>
+                  <Text size="small">
+                    {item.name} · {Math.round(item.confidence * 100)}%
+                  </Text>
+                </li>
+              ))}
+            </View>
+          </>
+        ) : null}
+        <Button color="primary" margin="small 0" disabled={busy} onClick={() => act({event: 'answer_verification'})}>
+          {I18n.t('已完成验证')}
         </Button>
       </View>
     )
@@ -275,10 +166,16 @@ function LearningFlow({
   if (state.phase === 'repair')
     return (
       <View as="section" padding="medium" background="secondary" margin="large 0">
-        <Heading level="h2">{I18n.t('2 · Repair：针对已验证错因补强')}</Heading>
+        <Heading level="h2">{I18n.t('3 · Repair：针对已验证错因补强')}</Heading>
+        {state.diagnostic ? <DiagnosisPanel diagnostic={state.diagnostic} /> : null}
         <Text weight="bold">{state.verified_hypothesis}</Text>
         <br />
         <Text>{I18n.t('课程依据：第 2 章「受力分析」')}</Text>
+        {state.diagnostic?.hint && (
+          <Alert variant="info" margin="small 0">
+            {state.diagnostic.hint}
+          </Alert>
+        )}
         {session.active_hint && (
           <Alert variant="info" margin="small 0">
             {I18n.t('第 %{level} 级提示：%{hint}', {
@@ -287,6 +184,13 @@ function LearningFlow({
             })}
           </Alert>
         )}
+        <Text weight="bold">
+          {I18n.t('迁移题：%{question}', {
+            question:
+              state.diagnostic?.transfer_question ||
+              I18n.t('换一个情境，说明支持力和重力是不是一对平衡力。'),
+          })}
+        </Text>
         <Button
           margin="small 0"
           disabled={busy || session.hint_level === 4}
@@ -303,9 +207,10 @@ function LearningFlow({
   if (state.phase === 'transfer')
     return (
       <View as="section" padding="medium" background="secondary" margin="large 0">
-        <Heading level="h2">{I18n.t('3 · Transfer：换一个情境验证迁移')}</Heading>
+        <Heading level="h2">{I18n.t('4 · Transfer：换一个情境验证迁移')}</Heading>
         <Text>
-          {I18n.t('电梯加速上升时，人受到的支持力大于重力。支持力与重力是一对作用力—反作用力吗？')}
+          {state.diagnostic?.transfer_question ||
+            I18n.t('电梯加速上升时，人受到的支持力大于重力。支持力与重力是一对作用力—反作用力吗？')}
         </Text>
         <br />
         <Button
@@ -332,12 +237,7 @@ function LearningFlow({
           {state.concept.reason}：{state.concept.previous_mastery} → {state.concept.mastery}。
           {I18n.t('目标风险已下降，计划已重排。')}
         </Alert>
-        <Button
-          color="primary"
-          margin="small 0"
-          disabled={busy}
-          onClick={() => act({event: 'return_home'})}
-        >
+        <Button color="primary" margin="small 0" disabled={busy} onClick={returnHome}>
           {I18n.t('返回首页查看新计划')}
         </Button>
       </View>
@@ -368,10 +268,12 @@ function SisTimeline({events}: {events: Array<Record<string, unknown>>}) {
   )
 }
 
-function App() {
+export function MemuryApp() {
   const [state, setState] = useState<MemuryState | null>(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [draftAnswer, setDraftAnswer] = useState('')
+  const requestInFlightRef = useRef(false)
 
   useEffect(() => {
     let active = true
@@ -383,7 +285,14 @@ function App() {
     }
   }, [])
 
+  useEffect(() => {
+    if (state?.phase === 'recall') setDraftAnswer('')
+  }, [state?.phase])
+
   const perform = useCallback(async (request: () => Promise<MemuryState>) => {
+    if (requestInFlightRef.current) return
+
+    requestInFlightRef.current = true
     setBusy(true)
     setError(null)
     try {
@@ -391,6 +300,7 @@ function App() {
     } catch (reason) {
       setError(reason instanceof Error ? reason.message : String(reason))
     } finally {
+      requestInFlightRef.current = false
       setBusy(false)
     }
   }, [])
@@ -401,6 +311,13 @@ function App() {
     },
     [perform],
   )
+  const returnHome = useCallback(() => {
+    void perform(async () => {
+      await sendAction({event: 'return_home'})
+      return getState()
+    })
+  }, [perform])
+
   if (error && !state)
     return <Alert variant="error">{I18n.t('Memury 加载失败：%{error}', {error})}</Alert>
   if (!state) return <Spinner renderTitle={I18n.t('正在加载 Memury')} />
@@ -444,24 +361,32 @@ function App() {
       )}
       {state.phase === 'overview' && (
         <>
-          <NextAction state={state} busy={busy} act={act} />
+          <MemuryToday state={state} busy={busy} act={act} showFullPlanLink={false} />
           <View as="section" margin="large 0">
             <Heading level="h2">{I18n.t('概念掌握状态')}</Heading>
             <Text>
               {state.concept.name} · {Math.round(state.concept.confidence * 100)}%{' '}
               {I18n.t('判断置信度')}
             </Text>
+            <br />
+            <Text>{I18n.t('当前掌握度 %{mastery}%', {mastery: Math.round(state.concept.mastery * 100)})}</Text>
             <ProgressBar
               screenReaderLabel={I18n.t('概念掌握度')}
               valueNow={state.concept.mastery * 100}
             />
           </View>
-          <RiskList assignments={state.assignments} />
           <SisTimeline events={state.sis_events || []} />
-          <StudyCalendar state={state} busy={busy} act={act} />
+          <CourseDirectory state={state} busy={busy} act={act} />
         </>
       )}
-      <LearningFlow state={state} busy={busy} act={act} />
+      <LearningFlow
+        state={state}
+        busy={busy}
+        act={act}
+        returnHome={returnHome}
+        draftAnswer={draftAnswer}
+        setDraftAnswer={setDraftAnswer}
+      />
       <View as="section" margin="large 0">
         <Heading level="h2">{I18n.t('最近证据与决策')}</Heading>
         {state.evidence
@@ -489,8 +414,24 @@ function App() {
   )
 }
 
+function contextFromRoot(root: HTMLElement): MemuryContext {
+  const type = root.dataset.contextType
+  const supportedTypes: MemuryContext['type'][] = ['dashboard', 'course', 'assignment', 'page', 'module', 'session']
+  return {
+    type: supportedTypes.includes(type as MemuryContext['type']) ? (type as MemuryContext['type']) : 'dashboard',
+    course_id: root.dataset.courseId,
+    assignment_id: root.dataset.assignmentId,
+    page_id: root.dataset.pageId,
+    module_id: root.dataset.moduleId,
+  }
+}
+
 const root = document.getElementById('memury-root')
-if (root) createRoot(root).render(<App />)
+const dashboardRoot = document.getElementById('memury-dashboard-root')
+const contextRoot = document.getElementById('memury-context-root')
+if (root) createRoot(root).render(<MemuryApp />)
+else if (dashboardRoot) createRoot(dashboardRoot).render(<MemuryContextSurface context={contextFromRoot(dashboardRoot)} />)
+else if (contextRoot) createRoot(contextRoot).render(<MemuryContextSurface context={contextFromRoot(contextRoot)} />)
 /*
  * Copyright (C) 2026 - present Instructure, Inc.
  *

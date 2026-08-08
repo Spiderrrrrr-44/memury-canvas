@@ -24,6 +24,8 @@ services:
       - translations:/usr/src/app/public/javascripts/translations
       - yardoc:/usr/src/app/.yardoc
       - yarn-cache:/home/docker/.cache/yarn
+    env_file:
+      - ./.env.memury
     environment: &BASE-ENV
       ENCRYPTION_KEY: facdd3a131ddd8988b14f6e4e01039c93cfa0160
       RAILS_ENV: development
@@ -37,6 +39,8 @@ services:
 
   web:
     <<: *BASE
+    env_file:
+      - ./.env.memury
     environment:
       <<: *BASE-ENV
       VIRTUAL_HOST: .canvas.docker

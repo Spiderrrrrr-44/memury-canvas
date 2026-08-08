@@ -546,6 +546,7 @@ class UsersController < ApplicationController
       # things needed only for classic dashboard
       css_bundle :dashboard
       js_bundle :dashboard
+      js_bundle :memury if @domain_root_account&.feature_enabled?(:memury)
     end
 
     @announcements = AccountNotification.for_user_and_account(@current_user, @domain_root_account)

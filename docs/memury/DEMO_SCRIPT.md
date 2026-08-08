@@ -2,7 +2,7 @@
 
 ## 录制前
 
-1. 在 WSL 的 `/home/lenovo/memury-canvas-runtime` 运行 `docker compose up -d postgres redis web jobs`。
+1. 在 WSL 的仓库目录运行 `docker compose up -d postgres redis web jobs`。
 2. 运行 `docker compose run --rm -e LOGIN=memury.student@example.test web bundle exec rake memury:demo_seed`，确认输出为 1 门课程、3 项作业、1 个已提交和 2 个未提交。
 3. 首次使用时运行 `bash script/memury_set_demo_password`，在隐藏提示中设置密码；不要把密码放进命令、文档、截图或聊天。
 4. 退出管理员账号，以 `memury.student@example.test` 登录。在 Memury 页面依次点击“重置 Demo”和“同步 Canvas 并重新规划”，确认摘要为“1 门课程，3 项作业”。
@@ -22,8 +22,8 @@
 
 ## 1:00–2:10｜错答诊断闭环
 
-1. Recall 故意选择“是，它们大小相等方向相反”。
-2. 展示系统没有直接公布答案，而是列出“概念混淆、读题错误、计算失误”三个候选错因。
+1. 在 Recall 文本框里输入一段自由回答，例如“我觉得它们是平衡力，因为方向相反”。
+2. 展示系统先给出结构化诊断，再给出验证问题、依据和渐进提示，而不是直接公布完整答案。
 3. 回答最小验证题“书对桌面的压力”，确认错因为“未区分力的受力物体”。
 4. 连续点击两次“获取下一条渐进提示”，展示提示由方向性支架逐步变具体。
 5. 点击“进入 Transfer”，选择“不是，它们都作用在人身上”。

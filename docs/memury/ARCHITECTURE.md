@@ -16,4 +16,4 @@
 
 ## 扩展
 
-Connector 接口可替换为服务端 Canvas REST/LTI 1.3、Blackboard REST/LTI、OneRoster 或 PeopleSoft 实现；各实现必须返回相同 DTO 并在服务端执行授权。未来 `LearningAgentProvider` 应仅接收经过裁剪、当作不可信文本处理的课程上下文，并对结构化输出做 schema 校验；失败回退到现有确定性规则，密钥仅来自环境变量。
+Connector 接口可替换为服务端 Canvas REST/LTI 1.3、Blackboard REST/LTI、OneRoster 或 PeopleSoft 实现；各实现必须返回相同 DTO 并在服务端执行授权。未来 `LearningAgentProvider` 应仅接收经过裁剪、当作不可信文本处理的课程上下文，并对结构化输出做 schema 校验；失败回退到现有确定性规则，密钥仅来自环境变量。当前实现已将这条路径落在 `Memury::Ai::TeachingDiagnosisService`，由 Rails 后端通过 Responses API 兼容接口完成教学诊断并在失败时自动回退。

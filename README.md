@@ -45,6 +45,7 @@ Memury currently supports two connected loops:
 - Deterministic task-risk scoring with human-readable explanations.
 - Three-stage study blocks that can be completed, skipped, or deferred.
 - Active diagnostic flow with candidate causes, verification, hints, and transfer questions.
+- Server-side AI diagnosis with strict schema validation and deterministic fallback.
 - Persistent learner profiles, evidence, decision logs, and study plans.
 - Demo mode that does not require an external AI API key.
 - Read-only handling of Canvas grades and submissions.
@@ -156,7 +157,7 @@ This repository should therefore be treated as an early Canvas-first MVP impleme
 - Run and validate the complete MVP in the official Canvas development environment.
 - Map Canvas Modules, Pages, Calendar, Planner, feedback, and assessment scope.
 - Add conflict detection and editable study-block controls.
-- Introduce a schema-validated server-side AI provider.
+- Expand the server-side AI provider with richer curriculum-specific prompt packs.
 - Replace demo SIS data with authorized institutional connectors.
 - Add browser E2E, accessibility, security, and privacy tests.
 

@@ -2741,6 +2741,7 @@ class CoursesController < ApplicationController
         end
 
         js_bundle :course, :course_show
+        js_bundle :memury if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user)
         css_bundle :course_show
 
         if @context_enrollment

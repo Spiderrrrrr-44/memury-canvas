@@ -1,0 +1,11 @@
+diff --git a/node_modules/@instructure/brandable_css/src/main.js b/node_modules/@instructure/brandable_css/src/main.js
+index 0f2c3b1..80af4c0 100644
+--- a/node_modules/@instructure/brandable_css/src/main.js
++++ b/node_modules/@instructure/brandable_css/src/main.js
+@@ -251,7 +251,7 @@ exports.startWatcher = function startWatcher () {
+   debug('watching for changes to any scss files')
+   watcher = chokidar
+-    .watch(PATHS.brandable_variables_json, {persistent: true, cwd: PATHS.sass_dir}) // TODO: remove line
++    .watch(PATHS.brandable_variables_json, {persistent: true})
+     .on('add', (f) => debug('file added to watcher', f))
+     .add(PATHS.all_sass_bundles)
