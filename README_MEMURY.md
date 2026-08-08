@@ -20,6 +20,19 @@ cp .env.memury.example .env.memury
 
 `MEMURY_DEMO_MODE=true` is the safe default. It uses deterministic rules, simulated SIS events, and predefined diagnostic questions without requiring an external AI key. `.env.memury` is intentionally ignored by Git; never commit credentials or real student data.
 
+### Runtime AI diagnosis
+
+Set the following runtime variables to enable server-side AI diagnosis:
+
+- `MEMURY_AI_ENABLED=true`
+- `OPENAI_API_KEY`
+- `OPENAI_BASE_URL`
+- `MEMURY_AI_MODEL`
+
+Memury sends a trimmed teaching context from the Rails backend to `POST {OPENAI_BASE_URL}/responses`, parses the returned JSON strictly, and falls back to the deterministic rule engine on any configuration, network, parsing, or schema failure.
+
+The local Docker override injects these values into both `web` and `jobs` from `./.env.memury` via service-level `env_file`, so you do not need to copy them into `environment:` or pass `--env-file` just to populate the runtime containers.
+
 ## Database and frontend setup
 
 ```bash
@@ -49,7 +62,7 @@ The task creates or refreshes:
 For a newly created login, set a private password once from WSL. Input is hidden and is passed to Rails only through standard input; it is not stored in shell history, command arguments, logs, or this repository:
 
 ```bash
-cd /home/lenovo/memury-canvas-runtime
+cd /path/to/memury-canvas-runtime
 bash script/memury_set_demo_password
 ```
 
@@ -100,12 +113,14 @@ docker compose run --rm web bin/rspec \
   spec/services/memury/priority_scorer_spec.rb \
   spec/services/memury/learner_state_updater_spec.rb \
   spec/services/memury/connectors/canvas_native_connector_spec.rb \
+  spec/services/memury/ai/teaching_diagnosis_service_spec.rb \
   spec/controllers/memury_controller_spec.rb
 
 docker compose run --rm web yarn eslint \
   ui/features/memury/api.ts \
   ui/features/memury/index.tsx \
-  ui/features/memury/types.ts --no-cache
+  ui/features/memury/types.ts \
+  ui/features/memury/__tests__/index.test.tsx --no-cache
 docker compose run --rm web yarn check:ts
 docker compose run --rm web yarn webpack-development
 ```

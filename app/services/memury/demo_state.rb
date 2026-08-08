@@ -19,11 +19,15 @@ module Memury
           name: "平衡力与作用力—反作用力的区别",
           mastery: 0.42,
           confidence: 0.76,
-          misconception: "把作用在不同物体上的作用力与反作用力当作平衡力"
+          misconception: "把作用在不同物体上的作用力与反作用力当作平衡力",
+          reference_answer: "桌面对书的支持力与书对桌面的压力作用在不同物体上，不是一对平衡力。"
         },
         recent_activity_at: (now - 3.days).iso8601,
         completed_assignment_ids: [],
-        learning_session: {},
+        learning_session: {
+          recall_question: "一本书静止在桌面上。桌面对书的支持力与书对桌面的压力是一对平衡力吗？"
+        },
+        sis_events: Memury::Connectors::DemoSisConnector.new(user: nil, now:).call,
         evidence: [
           { title: "受力分析作业 1：相关题目作答错误", source: "Demo learning evidence", observed_at: (now - 2.days).iso8601 }
         ],

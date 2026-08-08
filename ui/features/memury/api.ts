@@ -17,10 +17,20 @@
  */
 
 import doFetchApi from '@canvas/do-fetch-api-effect'
-import type {MemuryState} from './types'
+import type {MemuryContext, MemuryState} from './types'
 
-export async function getState(): Promise<MemuryState> {
-  const {json} = await doFetchApi<MemuryState>({path: '/memury/state'})
+export async function getState(context?: MemuryContext): Promise<MemuryState> {
+  const query = context
+    ? Object.entries(context)
+        .filter(([, value]) => value)
+        .map(([key, value]) =>
+          `${encodeURIComponent(key === 'type' ? 'context_type' : key)}=${encodeURIComponent(value)}`,
+        )
+        .join('&')
+    : ''
+  const {json} = await doFetchApi<MemuryState>({
+    path: query ? `/memury/state?${query}` : '/memury/state',
+  })
   if (!json) throw new Error('Memury returned no state')
   return json
 }

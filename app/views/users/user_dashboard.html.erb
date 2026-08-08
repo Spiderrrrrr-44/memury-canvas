@@ -91,6 +91,9 @@ if k5_user?
   <h1 class="screenreader-only"><%= dashboard_title %></h1>
   <%= render :partial => 'shared/dashboard_invitation', :collection => @pending_invitations %>
   <%= render :partial => 'shared/dashboard_messages' %>
+  <% if @domain_root_account&.feature_enabled?(:memury) %>
+    <div id="memury-dashboard-root" data-context-type="dashboard"></div>
+  <% end %>
   <% if k5_user? %>
     <div id="dashboard-app-container"></div>
   <% else %>

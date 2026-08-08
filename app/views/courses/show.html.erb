@@ -60,6 +60,13 @@
   <% js_bundle :announcements_on_home_page %>
 <% end %>
 <div id="course_home_content">
+  <% if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user) %>
+    <div
+      id="memury-context-root"
+      data-context-type="course"
+      data-course-id="<%= @context.id %>"
+    ></div>
+  <% end %>
   <% if @display_tag_converter_message %>
     <div id="differentiation-tag-converter-message-root"></div>
   <% end %>

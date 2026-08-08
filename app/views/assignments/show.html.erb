@@ -149,6 +149,14 @@
         <%= assignment_submission_button(@assignment, @current_user, @current_user_submission, @first_annotation_submission) %>
       </div>
     </div>
+    <% if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user) %>
+      <div
+        id="memury-context-root"
+        data-context-type="assignment"
+        data-course-id="<%= @context.id %>"
+        data-assignment-id="<%= @assignment.id %>"
+      ></div>
+    <% end %>
     <% if @domain_root_account&.feature_enabled?(:lti_asset_processor) %>
       <div id="assignment_asset_processor_eula"></div>
     <% end %>
