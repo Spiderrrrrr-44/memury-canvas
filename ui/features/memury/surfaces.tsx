@@ -10,7 +10,6 @@ import {Badge} from '@instructure/ui-badge'
 import {Button} from '@instructure/ui-buttons'
 import {Heading} from '@instructure/ui-heading'
 import {Spinner} from '@instructure/ui-spinner'
-import {Table} from '@instructure/ui-table'
 import {Text} from '@instructure/ui-text'
 import {View} from '@instructure/ui-view'
 import {useScope as createI18nScope} from '@canvas/i18n'
@@ -51,11 +50,11 @@ function AcademicSnapshot({state}: {state: MemuryState}) {
     [I18n.t('本周预计负载'), `${snapshot.weekly_estimated_minutes} ${I18n.t('分钟')}`],
   ]
   return (
-    <View as="section" id="academic-snapshot" margin="medium 0">
+    <View as="section" id="academic-snapshot" className="memury-section memury-snapshot" margin="medium 0">
       <Heading level="h2">{I18n.t('Academic Snapshot')}</Heading>
       <View as="div" display="flex">
         {values.map(([label, value]) => (
-          <View key={String(label)} borderWidth="small" borderRadius="small" padding="small" minWidth="130px">
+          <View key={String(label)} className="memury-stat" borderWidth="small" borderRadius="small" padding="small" minWidth="130px">
             <Text size="small">{label}</Text>
             <br />
             <Text size="large" weight="bold">{value}</Text>
@@ -102,7 +101,7 @@ function RecommendationCard({
   if (!action) return <Alert variant="info">{I18n.t('当前没有待安排的学习行动。')}</Alert>
 
   return (
-    <View as="section" id="next-best-action" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
+    <View as="section" id="next-best-action" className="memury-card memury-card--featured memury-next-action" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
       <Text size="small">{I18n.t('由风险、截止时间和 Learner State 共同计算')}</Text>
       <Heading level="h2">{I18n.t('下一最佳学习行动')}</Heading>
       <Text size="small">Next Best Action</Text>
@@ -152,7 +151,7 @@ function TodayPlan({
 }) {
   const blocks = state.today?.study_blocks?.length ? state.today.study_blocks : state.study_blocks
   return (
-    <View as="section" id="today-plan" margin="large 0">
+    <View as="section" id="today-plan" className="memury-plan memury-section" margin="large 0">
       <Heading level="h2">{I18n.t('Today Plan')}</Heading>
       <Text size="small">
         {I18n.t('%{completed} / %{total} 分钟已完成', {
@@ -160,34 +159,30 @@ function TodayPlan({
           total: state.today?.total_minutes ?? blocks.reduce((sum, block) => sum + block.duration_minutes, 0),
         })}
       </Text>
-      <Table caption={I18n.t('今日 Study Blocks')} margin="small 0">
-        <Table.Head>
-          <Table.Row>
-            <Table.ColHeader id="today-stage">{I18n.t('学习目标')}</Table.ColHeader>
-            <Table.ColHeader id="today-time">{I18n.t('时长与时间')}</Table.ColHeader>
-            <Table.ColHeader id="today-status">{I18n.t('状态')}</Table.ColHeader>
-            <Table.ColHeader id="today-action">{I18n.t('操作')}</Table.ColHeader>
-          </Table.Row>
-        </Table.Head>
-        <Table.Body>
-          {blocks.map(block => (
-            <Table.Row key={block.id}>
-              <Table.Cell>
-                <Text weight="bold">{block.title}</Text>
-                <br />
-                <Text size="small">{block.course_name} · {block.concept}</Text>
-              </Table.Cell>
-              <Table.Cell>{block.duration_minutes} {I18n.t('分钟')} · {formatDate(block.starts_at)}</Table.Cell>
-              <Table.Cell>{block.today_status || block.status}</Table.Cell>
-              <Table.Cell>
+      <div className="memury-study-list" role="list" aria-label={I18n.t('今日 Study Blocks')}>
+        {blocks.map(block => (
+          <article className="memury-study-row" role="listitem" key={block.id}>
+            <div className="memury-study-row__body">
+              <div className="memury-study-row__heading">
+                <h3>{block.title}</h3>
+                <span className="memury-status-pill">{block.today_status || block.status}</span>
+              </div>
+              <p className="memury-study-row__concept">{block.course_name} · {block.concept}</p>
+              <p className="memury-study-row__time">
+                {block.duration_minutes} {I18n.t('分钟')} · {formatDate(block.starts_at)}
+              </p>
+            </div>
+            <div className="memury-study-row__actions">
                 <Button
+                  className="memury-secondary-action"
                   size="small"
                   disabled={busy || block.status === 'completed' || block.status === 'skipped'}
                   onClick={() => act({event: 'complete_block', block_id: block.id})}
                 >
                   {I18n.t('完成')}
-                </Button>{' '}
+                </Button>
                 <Button
+                  className="memury-secondary-action"
                   size="small"
                   disabled={busy || block.status === 'completed' || block.status === 'skipped'}
                   onClick={() =>
@@ -201,11 +196,10 @@ function TodayPlan({
                 >
                   {I18n.t('暂缓一天')}
                 </Button>
-              </Table.Cell>
-            </Table.Row>
-          ))}
-        </Table.Body>
-      </Table>
+            </div>
+          </article>
+        ))}
+      </div>
       {(state.today?.has_overdue || state.today?.has_due_soon || state.today?.has_schedule_conflict) && (
         <Alert variant="warning">
           {[state.today?.has_overdue && I18n.t('存在逾期任务'), state.today?.has_due_soon && I18n.t('存在临近截止任务'), state.today?.has_schedule_conflict && I18n.t('Study Block 存在时间冲突')]
@@ -223,7 +217,7 @@ function UpcomingExam({state}: {state: MemuryState}) {
   const startsAt = exam.starts_at ? new Date(exam.starts_at) : null
   const hours = startsAt && !Number.isNaN(startsAt.valueOf()) ? Math.max(0, Math.ceil((startsAt.getTime() - Date.now()) / 3_600_000)) : null
   return (
-    <View as="section" id="upcoming-exam" padding="small" borderWidth="small" borderRadius="small" margin="medium 0">
+    <View as="section" id="upcoming-exam" className="memury-card memury-card--warning" padding="small" borderWidth="small" borderRadius="small" margin="medium 0">
       <Text weight="bold">{I18n.t('最近考试：%{title}', {title: exam.title})}</Text>
       <br />
       <Text size="small">
@@ -237,15 +231,27 @@ function RiskQueue({state, assignmentId}: {state: MemuryState; assignmentId?: st
   const risks = state.risks?.filter(item => !assignmentId || item.id === assignmentId).slice(0, 6)
   if (!risks?.length) return null
   return (
-    <View as="section" id="risk-queue" margin="large 0">
+    <View as="section" id="risk-queue" className="memury-risk-queue memury-section" margin="large 0">
       <Heading level="h2">{I18n.t('Risk Queue')}</Heading>
       {risks.map(item => (
-        <View key={`${item.type}-${item.id}`} padding="small" borderWidth="small" borderRadius="small" margin="small 0">
-          <Text weight="bold">{item.course} · {item.title}</Text>{' '}
-          <Badge count={1} formatOutput={() => `${Math.round(item.risk * 100)}%`} standalone />
-          <br />
-          <Text size="small">{item.status} · {item.reasons.join('；')} · {item.estimated_minutes} {I18n.t('分钟')}</Text>
-        </View>
+        <article key={`${item.type}-${item.id}`} className="memury-risk-row">
+          <div className="memury-risk-row__header">
+            <div className="memury-risk-row__identity">
+              <span className="memury-risk-row__course">{item.course}</span>
+              <h3>{item.title}</h3>
+            </div>
+            <span className="memury-risk-score" aria-label={I18n.t('风险 %{risk}%', {risk: Math.round(item.risk * 100)})}>
+              {Math.round(item.risk * 100)}%
+            </span>
+          </div>
+          <div className="memury-risk-row__meta">
+            <span className="memury-status-pill">{item.status}</span>
+            <span>{item.estimated_minutes} {I18n.t('分钟')}</span>
+          </div>
+          <ul className="memury-risk-row__reasons">
+            {item.reasons.map(reason => <li key={reason}>{reason}</li>)}
+          </ul>
+        </article>
       ))}
     </View>
   )
@@ -256,7 +262,7 @@ function LearnerStateSnapshot({state}: {state: MemuryState}) {
   if (!learnerState) return null
   const weak = learnerState.weak_concepts[0]
   return (
-    <View as="section" id="learner-state" margin="large 0">
+    <View as="section" id="learner-state" className="memury-learner-state memury-section" margin="large 0">
       <Heading level="h2">{I18n.t('Learner State Snapshot')}</Heading>
       {weak && (
         <Text>
@@ -278,7 +284,7 @@ function LearnerStateSnapshot({state}: {state: MemuryState}) {
 function AgentActivity({state}: {state: MemuryState}) {
   if (!state.agent_activity?.length) return null
   return (
-    <View as="section" id="agent-activity" margin="large 0">
+    <View as="section" id="agent-activity" className="memury-agent-activity memury-section" margin="large 0">
       <Heading level="h2">{I18n.t('Recent Changes / Agent Activity')}</Heading>
       {state.agent_activity.slice(0, 4).map((item, index) => (
         <Alert key={`${String(item.at)}-${index}`} variant="info" margin="small 0">
@@ -303,12 +309,12 @@ export function MemuryToday({
   sourceType?: string
 }) {
   return (
-    <View as="section" id="memury-today" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
+    <View as="section" id="memury-today" className="memury-surface memury-today" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
       <Heading level="h2">{I18n.t('Memury Today')}</Heading>
       <Text>{I18n.t('Memury 根据课程任务、截止时间、考试和 Learner State 帮你决定现在先做什么。')}</Text>
+      <RecommendationCard state={state} busy={busy} act={act} sourceType={sourceType} />
       <AcademicSnapshot state={state} />
       <UpcomingExam state={state} />
-      <RecommendationCard state={state} busy={busy} act={act} sourceType={sourceType} />
       <TodayPlan state={state} busy={busy} act={act} />
       <RiskQueue state={state} />
       <LearnerStateSnapshot state={state} />
@@ -339,7 +345,7 @@ export function CourseIntelligenceView({
   if (!course) return <Alert variant="info">{I18n.t('当前状态中没有课程数据，请先同步 Canvas。')}</Alert>
   const assignments = courseAssignments(state, course)
   return (
-    <View as="section" id="course-intelligence" margin="medium 0">
+    <View as="section" id="course-intelligence" className="memury-course memury-section" margin="medium 0">
       <Heading level="h2">{I18n.t('Course Intelligence：%{course}', {course: course.name})}</Heading>
       <Text>
         {I18n.t('课程风险 %{risk}% · 未完成 %{count} 项 · 预计负载 %{minutes} 分钟', {
@@ -359,7 +365,7 @@ export function CourseIntelligenceView({
       )}
       <Heading level="h3">{I18n.t('课程任务与风险')}</Heading>
       {assignments.map(item => (
-        <View key={String(item.id)} padding="small 0">
+        <View as="article" key={String(item.id)} className="memury-course-assignment" padding="small 0">
           <Text weight="bold">{item.title}</Text> · <Text>{item.submitted ? I18n.t('已提交') : I18n.t('未完成')}</Text>
           <br />
           <Text size="small">{item.risk_reasons.join('；')} · {formatDate(item.due_at)}</Text>
@@ -394,7 +400,7 @@ export function CourseIntelligenceView({
       )}
       <Heading level="h3">{I18n.t('薄弱概念与学习证据')}</Heading>
       {course.weak_concepts.map(concept => (
-        <View key={String(concept.id)} padding="small" borderWidth="small" borderRadius="small">
+        <View as="article" key={String(concept.id)} className="memury-concept-card" padding="small" borderWidth="small" borderRadius="small">
           <Text weight="bold">{String(concept.name)}</Text> · {Math.round(Number(concept.mastery) * 100)}%
           <br />
           <Text size="small">{String(concept.misconception || I18n.t('需要更多证据'))}</Text>
@@ -447,10 +453,10 @@ export function CourseDirectory({
 }) {
   if (!state.courses?.length) return null
   return (
-    <View as="section" id="courses" margin="large 0">
+    <View as="section" id="courses" className="memury-course-directory memury-section" margin="large 0">
       <Heading level="h2">{I18n.t('Courses')}</Heading>
       {state.courses.map(course => (
-        <View key={course.id} padding="small 0" borderWidth="small" borderRadius="small" margin="small 0">
+        <View as="article" key={course.id} className="memury-card" padding="small 0" borderWidth="small" borderRadius="small" margin="small 0">
           <CourseIntelligenceView state={state} busy={busy} act={act} courseId={course.id} />
         </View>
       ))}
@@ -492,7 +498,7 @@ export function MemuryAssistant({
         ? I18n.t('课程 %{id}', {id: context.course_id})
         : I18n.t('Canvas Dashboard'))
   return (
-    <View as="aside" id="memury-assistant" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
+    <View as="aside" id="memury-assistant" className="memury-card memury-assistant" padding="medium" borderWidth="small" borderRadius="medium" margin="medium 0">
       <Heading level="h2">{I18n.t('Memury Assistant')}</Heading>
       <Text weight="bold">{I18n.t('Memury 当前知道你在哪里：%{context}', {context: contextLabel})}</Text>
       <Text as="p" size="small">
@@ -555,11 +561,34 @@ export function MemuryContextSurface({context}: {context: MemuryContext}) {
       })
   }, [context])
 
-  if (error && !state) return <Alert variant="error">{I18n.t('Memury 加载失败：%{error}', {error})}</Alert>
-  if (!state) return <View padding="medium"><Spinner renderTitle={I18n.t('正在加载 Memury 上下文')} /></View>
+  if (error && !state)
+    return (
+      <div className="memury-context-shell memury-error">
+        <Alert variant="error">{I18n.t('Memury 加载失败：%{error}', {error})}</Alert>
+      </div>
+    )
+  if (!state)
+    return (
+      <div className="memury-context-shell memury-loading">
+        <Spinner renderTitle={I18n.t('正在加载 Memury 上下文')} />
+      </div>
+    )
 
   return (
-    <View as="section" id="memury-context-surface" maxWidth="960px" padding="medium">
+    <View
+      as="section"
+      id="memury-context-surface"
+      className="memury-context-shell memury-context-surface"
+      maxWidth="960px"
+      padding="medium"
+    >
+      <div className="memury-context-toolbar">
+        <div className="memury-context-toolbar__copy">
+          <p className="memury-eyebrow">Memury / context-aware learning</p>
+          <h1>{I18n.t('把当前 Canvas 页面接入学习计划')}</h1>
+          <p className="memury-context-toolbar__summary">{I18n.t('在不打断当前任务的前提下，查看风险、证据与下一步行动。')}</p>
+        </div>
+      </div>
       <MemuryAssistant state={state} context={context} busy={busy} act={act} />
       {error && <Alert variant="error">{I18n.t('操作失败：%{error}', {error})}</Alert>}
       {context.type === 'course' && <CourseIntelligenceView state={state} busy={busy} act={act} courseId={context.course_id} />}

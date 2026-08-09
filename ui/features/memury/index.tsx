@@ -36,6 +36,8 @@ import {
   MemuryToday,
 } from './surfaces'
 import type {MemuryContext, MemuryState} from './types'
+import './theme'
+import './memury.css'
 
 const I18n = createI18nScope('memury')
 
@@ -62,7 +64,14 @@ function DiagnosisPanel({
     uncertain: I18n.t('证据不足'),
   }
   return (
-    <View as="section" padding="small" borderWidth="small" borderRadius="small" margin="small 0">
+    <View
+      as="section"
+      className="memury-card memury-diagnosis"
+      padding="small"
+      borderWidth="small"
+      borderRadius="small"
+      margin="small 0"
+    >
       <Text size="small">
         {I18n.t('诊断来源')}{' '}
         <Source kind={diagnostic.source === 'ai' ? 'ai' : 'rule_fallback'} />
@@ -104,7 +113,12 @@ function LearningFlow({
 
   if (state.phase === 'recall')
     return (
-      <View as="section" padding="medium" background="secondary" margin="large 0">
+      <View
+        as="section"
+        className="memury-surface memury-learning-stage memury-learning-stage--recall"
+        padding="medium"
+        margin="large 0"
+      >
         <Heading level="h2">{I18n.t('1 · Recall：先用自己的话回答')}</Heading>
         <Text>{session.recall_question || I18n.t('一本书静止在桌面上。')}</Text>
         <TextArea
@@ -131,7 +145,12 @@ function LearningFlow({
 
   if (state.phase === 'verify')
     return (
-      <View as="section" padding="medium" background="secondary" margin="large 0">
+      <View
+        as="section"
+        className="memury-surface memury-learning-stage memury-learning-stage--diagnose"
+        padding="medium"
+        margin="large 0"
+      >
         <Heading level="h2">{I18n.t('2 · Diagnose：先确认错因')}</Heading>
         {state.diagnostic ? (
           <DiagnosisPanel diagnostic={state.diagnostic} />
@@ -165,7 +184,12 @@ function LearningFlow({
 
   if (state.phase === 'repair')
     return (
-      <View as="section" padding="medium" background="secondary" margin="large 0">
+      <View
+        as="section"
+        className="memury-surface memury-learning-stage memury-learning-stage--repair"
+        padding="medium"
+        margin="large 0"
+      >
         <Heading level="h2">{I18n.t('3 · Repair：针对已验证错因补强')}</Heading>
         {state.diagnostic ? <DiagnosisPanel diagnostic={state.diagnostic} /> : null}
         <Text weight="bold">{state.verified_hypothesis}</Text>
@@ -192,6 +216,7 @@ function LearningFlow({
           })}
         </Text>
         <Button
+          className="memury-secondary-action"
           margin="small 0"
           disabled={busy || session.hint_level === 4}
           onClick={() => act({event: 'request_hint'})}
@@ -206,7 +231,12 @@ function LearningFlow({
 
   if (state.phase === 'transfer')
     return (
-      <View as="section" padding="medium" background="secondary" margin="large 0">
+      <View
+        as="section"
+        className="memury-surface memury-learning-stage memury-learning-stage--transfer"
+        padding="medium"
+        margin="large 0"
+      >
         <Heading level="h2">{I18n.t('4 · Transfer：换一个情境验证迁移')}</Heading>
         <Text>
           {state.diagnostic?.transfer_question ||
@@ -214,6 +244,7 @@ function LearningFlow({
         </Text>
         <br />
         <Button
+          className="memury-secondary-action"
           margin="small 0"
           disabled={busy}
           onClick={() => act({event: 'answer_transfer', correct: false})}
@@ -232,7 +263,11 @@ function LearningFlow({
 
   if (state.phase === 'complete')
     return (
-      <View as="section" margin="large 0">
+      <View
+        as="section"
+        className="memury-surface memury-learning-stage memury-learning-stage--complete"
+        margin="large 0"
+      >
         <Alert variant="success">
           {state.concept.reason}：{state.concept.previous_mastery} → {state.concept.mastery}。
           {I18n.t('目标风险已下降，计划已重排。')}
@@ -248,7 +283,7 @@ function LearningFlow({
 
 function SisTimeline({events}: {events: Array<Record<string, unknown>>}) {
   return (
-    <View as="section" margin="large 0">
+    <View as="section" className="memury-section memury-timeline" margin="large 0">
       <Heading level="h2">{I18n.t('Demo SIS 课表与考试')}</Heading>
       {events.length === 0 ? (
         <Alert variant="info">{I18n.t('同步后显示模拟 SIS 事件。')}</Alert>
@@ -319,13 +354,31 @@ export function MemuryApp() {
   }, [perform])
 
   if (error && !state)
-    return <Alert variant="error">{I18n.t('Memury 加载失败：%{error}', {error})}</Alert>
-  if (!state) return <Spinner renderTitle={I18n.t('正在加载 Memury')} />
+    return <div className="memury-shell memury-error"><Alert variant="error">{I18n.t('Memury 加载失败：%{error}', {error})}</Alert></div>
+  if (!state) return <div className="memury-shell memury-loading"><Spinner renderTitle={I18n.t('正在加载 Memury')} /></div>
 
   return (
-    <View as="main" maxWidth="1100px" margin="0 auto" padding="large">
-      <Heading level="h1">{I18n.t('Memury')}</Heading>
-      <Text>{I18n.t('理解全局 → 选择行动 → 诊断学习 → 更新计划')}</Text>
+    <View as="main" className="memury-shell" maxWidth="1100px" margin="0 auto" padding="large">
+      <header className="memury-page-header">
+        <div className="memury-page-header__copy">
+          <p className="memury-eyebrow">Memury / adaptive learning copilot</p>
+          <h1>{I18n.t('Memury')}</h1>
+          <p className="memury-page-header__summary">{I18n.t('理解全局 → 选择行动 → 诊断学习 → 更新计划')}</p>
+        </div>
+        <div className="memury-toolbar" aria-label={I18n.t('Memury 工具栏')}>
+          <Button
+            className="memury-primary-action"
+            color="primary"
+            disabled={busy}
+            onClick={() => void perform(syncState)}
+          >
+            {I18n.t('同步 Canvas 并重新规划')}
+          </Button>
+          <Button className="memury-secondary-action" disabled={busy} onClick={() => void perform(resetState)}>
+            {I18n.t('重置 Demo')}
+          </Button>
+        </div>
+      </header>
       {state.demo_mode && (
         <Alert variant="info" margin="medium 0">
           {I18n.t('可靠 Demo 模式：模拟 SIS 和预置题目均明确标注，不依赖外部 API Key。')}
@@ -341,12 +394,6 @@ export function MemuryApp() {
           {I18n.t('正在更新学习状态…')}
         </Alert>
       )}
-      <Button color="primary" disabled={busy} onClick={() => void perform(syncState)}>
-        {I18n.t('同步 Canvas 并重新规划')}
-      </Button>{' '}
-      <Button disabled={busy} onClick={() => void perform(resetState)}>
-        {I18n.t('重置 Demo')}
-      </Button>
       <Text size="small">
         {' '}
         {I18n.t('上次同步：')} {new Date(state.last_synced_at).toLocaleString()}
@@ -362,7 +409,7 @@ export function MemuryApp() {
       {state.phase === 'overview' && (
         <>
           <MemuryToday state={state} busy={busy} act={act} showFullPlanLink={false} />
-          <View as="section" margin="large 0">
+          <View as="section" className="memury-surface memury-section" margin="large 0">
             <Heading level="h2">{I18n.t('概念掌握状态')}</Heading>
             <Text>
               {state.concept.name} · {Math.round(state.concept.confidence * 100)}%{' '}
@@ -387,7 +434,7 @@ export function MemuryApp() {
         draftAnswer={draftAnswer}
         setDraftAnswer={setDraftAnswer}
       />
-      <View as="section" margin="large 0">
+      <View as="section" className="memury-section memury-evidence" margin="large 0">
         <Heading level="h2">{I18n.t('最近证据与决策')}</Heading>
         {state.evidence
           .slice(-4)

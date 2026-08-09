@@ -1,0 +1,779 @@
+/* Memury dark visual system. Scoped to pages that mount the Memury bundle. */
+
+:root,
+html[data-theme='dark'] {
+  color-scheme: dark;
+  --memury-page: #0b1119;
+  --memury-surface: #131d29;
+  --memury-surface-subtle: #182433;
+  --memury-surface-elevated: #1d2b3c;
+  --memury-surface-strong: #223247;
+  --memury-chrome: rgba(15, 23, 33, 0.94);
+  --memury-text-primary: #f4f7fb;
+  --memury-text-secondary: #c5cfdb;
+  --memury-text-muted: #98a8ba;
+  --memury-divider: #314154;
+  --memury-border: #3b4c60;
+  --memury-border-strong: #52677f;
+  --memury-accent: #8fb4ff;
+  --memury-accent-hover: #b4ccff;
+  --memury-accent-soft: #1c3152;
+  --memury-success: #70d6a4;
+  --memury-warning: #f2b66d;
+  --memury-danger: #ff98a1;
+  --memury-focus-ring: #b7ceff;
+  --memury-shadow: 0 22px 54px rgba(0, 0, 0, 0.34);
+  --memury-shadow-soft: 0 8px 24px rgba(0, 0, 0, 0.22);
+  --memury-radius-xs: 8px;
+  --memury-radius-sm: 12px;
+  --memury-radius-md: 18px;
+  --memury-space-1: 4px;
+  --memury-space-2: 8px;
+  --memury-space-3: 12px;
+  --memury-space-4: 16px;
+  --memury-space-5: 24px;
+  --memury-space-6: 32px;
+  --memury-space-7: 48px;
+  --memury-duration-fast: 140ms;
+  --memury-easing-out: cubic-bezier(0.16, 1, 0.3, 1);
+  --memury-blur: 18px;
+}
+
+body.memury-ui-surface {
+  background: var(--memury-page) !important;
+  color: var(--memury-text-primary);
+  min-height: 100vh;
+}
+
+body.memury-ui-surface #content,
+body.memury-ui-surface #main,
+body.memury-ui-surface .ic-app-main,
+body.memury-ui-surface .ic-Layout-contentMain,
+body.memury-ui-surface .ic-Layout-contentWrapper,
+body.memury-ui-surface .ic-app-main-content__primary,
+body.memury-ui-surface .ic-app-main-content__secondary {
+  background: transparent !important;
+  color: var(--memury-text-primary) !important;
+}
+
+body.memury-ui-surface .ic-app-header,
+body.memury-ui-surface .ic-app-nav-toggle-and-crumbs {
+  background: var(--memury-chrome) !important;
+  border-color: var(--memury-border) !important;
+  box-shadow: 8px 0 30px rgba(0, 0, 0, 0.16);
+  -webkit-backdrop-filter: blur(var(--memury-blur)) saturate(1.08);
+  backdrop-filter: blur(var(--memury-blur)) saturate(1.08);
+}
+
+body.memury-ui-surface .ic-app-header__menu-list-link,
+body.memury-ui-surface .ic-app-nav-toggle-and-crumbs,
+body.memury-ui-surface .ic-app-nav-toggle-and-crumbs button {
+  color: var(--memury-text-secondary) !important;
+}
+
+body.memury-ui-surface .ic-app-header__menu-list-link:focus-visible,
+body.memury-ui-surface .ic-app-header__menu-list-link.ic-app-header__menu-list-item--active {
+  background: var(--memury-accent-soft) !important;
+  color: var(--memury-text-primary) !important;
+}
+
+/* Canvas Dashboard and shared chrome stay in the same graphite hierarchy. */
+body.memury-ui-surface .ic-Dashboard-header,
+body.memury-ui-surface .ic-Dashboard-header__layout,
+body.memury-ui-surface #right-side,
+body.memury-ui-surface .events_list,
+body.memury-ui-surface .todo-list,
+body.memury-ui-surface .recent-feedback {
+  background: transparent !important;
+  color: var(--memury-text-primary) !important;
+}
+
+body.memury-ui-surface .ic-DashboardCard,
+body.memury-ui-surface .ic-DashboardCard__box,
+body.memury-ui-surface .ic-DashboardCard__header,
+body.memury-ui-surface .ic-DashboardCard__action-layout,
+body.memury-ui-surface .ic-DashboardCard__action-container {
+  background: var(--memury-surface) !important;
+  border-color: var(--memury-border) !important;
+  color: var(--memury-text-primary) !important;
+}
+
+body.memury-ui-surface .ic-DashboardCard {
+  box-shadow: var(--memury-shadow-soft);
+}
+
+body.memury-ui-surface #dashboard.ic-dashboard-app > .ic-notification .ic-notification__content {
+  background: var(--memury-surface) !important;
+  color: var(--memury-text-primary) !important;
+}
+
+body.memury-ui-surface #dashboard.ic-dashboard-app > .ic-notification .ic-notification__title,
+body.memury-ui-surface #dashboard.ic-dashboard-app > .ic-notification .ic-notification__message {
+  color: var(--memury-text-primary) !important;
+}
+
+body.memury-ui-surface .ic-DashboardCard__header-title,
+body.memury-ui-surface .ic-DashboardCard__header-subtitle,
+body.memury-ui-surface .ic-DashboardCard__action,
+body.memury-ui-surface #right-side h2,
+body.memury-ui-surface #right-side a,
+body.memury-ui-surface #right-side li,
+body.memury-ui-surface #right-side span {
+  color: var(--memury-text-secondary) !important;
+}
+
+.memury-shell,
+.memury-context-shell {
+  box-sizing: border-box;
+  color: var(--memury-text-primary);
+  font-family: -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif;
+  font-optical-sizing: auto;
+  margin: 0 auto;
+  max-width: 1120px;
+  min-width: 0;
+  padding: clamp(22px, 4vw, 48px) clamp(16px, 4vw, 44px) 72px;
+  width: 100%;
+}
+
+.memury-shell *,
+.memury-context-shell * {
+  box-sizing: border-box;
+  min-width: 0;
+}
+
+.memury-page-header,
+.memury-context-toolbar {
+  align-items: flex-end;
+  display: flex;
+  gap: var(--memury-space-5);
+  justify-content: space-between;
+  margin-bottom: var(--memury-space-6);
+}
+
+.memury-page-header__copy,
+.memury-context-toolbar__copy {
+  min-width: 0;
+}
+
+.memury-eyebrow {
+  color: var(--memury-accent);
+  font-size: 0.72rem;
+  font-weight: 750;
+  letter-spacing: 0.12em;
+  margin: 0 0 var(--memury-space-2);
+  text-transform: uppercase;
+}
+
+.memury-page-header h1,
+.memury-context-toolbar h1 {
+  color: var(--memury-text-primary);
+  font-size: clamp(1.85rem, 3vw, 2.45rem);
+  font-weight: 650;
+  letter-spacing: -0.04em;
+  line-height: 1.08;
+  margin: 0;
+  max-width: 22ch;
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.memury-context-toolbar h1 {
+  font-size: clamp(1.65rem, 2.6vw, 2.15rem);
+}
+
+.memury-page-header__summary,
+.memury-context-toolbar__summary {
+  color: var(--memury-text-secondary);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  margin: var(--memury-space-3) 0 0;
+  max-width: 650px;
+  overflow-wrap: anywhere;
+}
+
+.memury-toolbar {
+  align-items: center;
+  display: flex;
+  flex: 0 1 auto;
+  flex-wrap: wrap;
+  gap: var(--memury-space-2);
+  justify-content: flex-end;
+}
+
+.memury-shell a:focus-visible,
+.memury-context-shell a:focus-visible,
+.memury-shell button:focus-visible,
+.memury-context-shell button:focus-visible,
+.memury-shell summary:focus-visible,
+.memury-context-shell summary:focus-visible {
+  outline: 3px solid var(--memury-focus-ring);
+  outline-offset: 3px;
+}
+
+.memury-shell button:disabled,
+.memury-context-shell button:disabled {
+  cursor: not-allowed;
+  opacity: 0.58;
+}
+
+.memury-shell button,
+.memury-context-shell button {
+  transform-origin: center;
+  transition: transform var(--memury-duration-fast) var(--memury-easing-out);
+}
+
+.memury-shell button:active:not(:disabled),
+.memury-context-shell button:active:not(:disabled) {
+  transform: scale(0.97);
+}
+
+.memury-card,
+.memury-surface {
+  background: var(--memury-surface) !important;
+  border: 1px solid var(--memury-border);
+  border-color: var(--memury-border) !important;
+  border-radius: var(--memury-radius-md);
+  box-shadow: var(--memury-shadow-soft);
+  color: var(--memury-text-primary) !important;
+  padding: var(--memury-space-5);
+}
+
+.memury-card--featured {
+  background: var(--memury-surface-elevated) !important;
+  border-color: var(--memury-border-strong) !important;
+  box-shadow: var(--memury-shadow);
+  padding: clamp(24px, 4vw, 40px);
+}
+
+.memury-card--warning {
+  background: var(--memury-surface-subtle) !important;
+  border-inline-start: 4px solid var(--memury-warning);
+}
+
+/* InstUI alerts and secondary buttons otherwise retain light theme tokens. */
+.memury-shell [class*='view-alert'],
+.memury-context-shell [class*='view-alert'] {
+  background: var(--memury-surface-elevated) !important;
+  border-color: var(--memury-border-strong) !important;
+  color: var(--memury-text-primary) !important;
+}
+
+.memury-shell [class*='view-alert'] > *,
+.memury-context-shell [class*='view-alert'] > * {
+  color: inherit !important;
+}
+
+.memury-shell [data-cid='BaseButton Button'] > [class*='baseButton__content'],
+.memury-context-shell [data-cid='BaseButton Button'] > [class*='baseButton__content'] {
+  border-radius: 10px;
+}
+
+.memury-secondary-action > [class*='baseButton__content'],
+.memury-study-row__actions [data-cid='BaseButton Button'] > [class*='baseButton__content'],
+.memury-toolbar button:last-child > [class*='baseButton__content'],
+.memury-learning-stage--repair button:first-of-type > [class*='baseButton__content'],
+.memury-learning-stage--transfer button:first-of-type > [class*='baseButton__content'] {
+  background: var(--memury-surface-strong) !important;
+  border-color: var(--memury-border-strong) !important;
+  color: var(--memury-text-primary) !important;
+}
+
+.memury-secondary-action [class*='baseButton__children'],
+.memury-study-row__actions [class*='baseButton__children'],
+.memury-toolbar button:last-child [class*='baseButton__children'],
+.memury-learning-stage--repair button:first-of-type [class*='baseButton__children'],
+.memury-learning-stage--transfer button:first-of-type [class*='baseButton__children'] {
+  color: var(--memury-text-primary) !important;
+}
+
+.memury-learning-stage {
+  overflow: hidden;
+  position: relative;
+}
+
+.memury-learning-stage::before {
+  background: var(--memury-accent);
+  content: '';
+  inset-block: 0;
+  inset-inline-start: 0;
+  position: absolute;
+  width: 4px;
+}
+
+.memury-learning-stage--repair::before {
+  background: var(--memury-warning);
+}
+
+.memury-learning-stage--complete::before {
+  background: var(--memury-success);
+}
+
+.memury-diagnosis {
+  background: var(--memury-surface-subtle);
+  border-radius: var(--memury-radius-sm);
+  box-shadow: none;
+}
+
+.memury-timeline,
+.memury-evidence {
+  border-top: 1px solid var(--memury-divider);
+  padding-top: var(--memury-space-5);
+}
+
+.memury-section,
+.memury-surface > section {
+  margin-top: var(--memury-space-6);
+}
+
+.memury-shell h2,
+.memury-context-shell h2 {
+  color: var(--memury-text-primary);
+  font-size: clamp(1.08rem, 2vw, 1.28rem);
+  letter-spacing: -0.02em;
+  line-height: 1.25;
+  margin: 0 0 var(--memury-space-3);
+  overflow-wrap: anywhere;
+  text-wrap: balance;
+}
+
+.memury-shell h3,
+.memury-context-shell h3 {
+  color: var(--memury-text-primary);
+  font-size: 0.98rem;
+  line-height: 1.35;
+  margin: var(--memury-space-5) 0 var(--memury-space-2);
+  overflow-wrap: anywhere;
+}
+
+.memury-shell p,
+.memury-shell li,
+.memury-context-shell p,
+.memury-context-shell li {
+  color: var(--memury-text-secondary);
+  line-height: 1.55;
+  overflow-wrap: anywhere;
+}
+
+.memury-shell a,
+.memury-context-shell a {
+  color: var(--memury-accent);
+  font-weight: 650;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+}
+
+.memury-snapshot > div,
+.memury-snapshot [class*='display-flex'] {
+  display: grid !important;
+  gap: var(--memury-space-3);
+  grid-template-columns: repeat(auto-fit, minmax(min(132px, 100%), 1fr));
+}
+
+.memury-stat {
+  background: var(--memury-surface-subtle);
+  border: 1px solid var(--memury-border);
+  border-radius: var(--memury-radius-sm);
+  min-width: 0 !important;
+  padding: var(--memury-space-3) !important;
+}
+
+.memury-stat strong,
+.memury-stat [class*='font-size'] {
+  color: var(--memury-text-primary);
+}
+
+.memury-next-action {
+  isolation: isolate;
+  position: relative;
+}
+
+.memury-next-action::before {
+  background: var(--memury-accent);
+  border-radius: 999px;
+  content: '';
+  height: 4px;
+  left: var(--memury-space-5);
+  position: absolute;
+  right: var(--memury-space-5);
+  top: 0;
+}
+
+.memury-next-action > [class*='text'] {
+  color: var(--memury-text-secondary);
+}
+
+.memury-next-action h2 {
+  font-size: clamp(1.3rem, 2.4vw, 1.7rem);
+  margin-top: var(--memury-space-2);
+}
+
+.memury-next-action button,
+.memury-assistant button,
+.memury-course button {
+  min-height: 44px;
+}
+
+.memury-plan,
+.memury-risk-queue,
+.memury-learner-state,
+.memury-agent-activity,
+.memury-course-directory {
+  border-top: 1px solid var(--memury-divider);
+  padding-top: var(--memury-space-5);
+}
+
+.memury-study-list {
+  display: grid;
+  gap: var(--memury-space-3);
+  margin-top: var(--memury-space-4);
+}
+
+.memury-study-row {
+  align-items: center;
+  background: var(--memury-surface-subtle);
+  border: 1px solid var(--memury-border);
+  border-radius: var(--memury-radius-sm);
+  display: grid;
+  gap: var(--memury-space-4);
+  grid-template-columns: minmax(0, 1fr) auto;
+  padding: var(--memury-space-4);
+}
+
+.memury-study-row__heading {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--memury-space-3);
+  justify-content: space-between;
+}
+
+.memury-study-row h3 {
+  margin: 0;
+}
+
+.memury-study-row__concept,
+.memury-study-row__time {
+  color: var(--memury-text-secondary);
+  font-size: 0.86rem;
+  margin: var(--memury-space-1) 0 0;
+}
+
+.memury-study-row__time {
+  color: var(--memury-text-muted);
+}
+
+.memury-study-row__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--memury-space-2);
+  justify-content: flex-end;
+}
+
+.memury-status-pill,
+.memury-risk-score {
+  align-items: center;
+  background: var(--memury-accent-soft);
+  border: 1px solid var(--memury-border-strong);
+  border-radius: 999px;
+  color: var(--memury-text-primary);
+  display: inline-flex;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 750;
+  line-height: 1;
+  min-height: 28px;
+  padding: 6px 10px;
+}
+
+.memury-risk-queue {
+  display: grid;
+  gap: var(--memury-space-3);
+}
+
+.memury-risk-queue > h2 {
+  margin-bottom: 0;
+}
+
+.memury-risk-row {
+  background: var(--memury-surface-subtle);
+  border: 1px solid var(--memury-border);
+  border-radius: var(--memury-radius-sm);
+  display: grid;
+  gap: var(--memury-space-3);
+  margin: 0;
+  min-height: 0;
+  padding: var(--memury-space-4);
+  position: static;
+  width: 100%;
+}
+
+.memury-risk-row__header {
+  align-items: flex-start;
+  display: flex;
+  gap: var(--memury-space-4);
+  justify-content: space-between;
+}
+
+.memury-risk-row__identity {
+  display: grid;
+  gap: var(--memury-space-1);
+}
+
+.memury-risk-row__identity h3 {
+  font-size: 1rem;
+  margin: 0;
+}
+
+.memury-risk-row__course {
+  color: var(--memury-text-muted);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  overflow-wrap: anywhere;
+}
+
+.memury-risk-score {
+  background: var(--memury-surface-strong);
+  color: var(--memury-warning);
+  font-size: 0.82rem;
+}
+
+.memury-risk-row__meta {
+  align-items: center;
+  color: var(--memury-text-muted);
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+  gap: var(--memury-space-2);
+}
+
+.memury-risk-row__reasons {
+  display: grid;
+  gap: var(--memury-space-1);
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.memury-risk-row__reasons li {
+  color: var(--memury-text-secondary);
+  font-size: 0.86rem;
+  line-height: 1.45;
+  padding-inline-start: 14px;
+  position: relative;
+}
+
+.memury-risk-row__reasons li::before {
+  background: var(--memury-accent);
+  border-radius: 50%;
+  content: '';
+  height: 4px;
+  inset-inline-start: 0;
+  position: absolute;
+  top: 0.65em;
+  width: 4px;
+}
+
+.memury-concept-card,
+.memury-course-assignment {
+  background: var(--memury-surface-subtle);
+  border: 1px solid var(--memury-border);
+  border-radius: var(--memury-radius-sm);
+  display: block;
+  height: auto;
+  margin: var(--memury-space-3) 0;
+  padding: var(--memury-space-4) !important;
+  position: static;
+  width: 100%;
+}
+
+.memury-course-directory > .memury-card {
+  background: var(--memury-surface);
+  padding: var(--memury-space-5) !important;
+}
+
+.memury-course + .memury-course {
+  border-top: 1px solid var(--memury-divider);
+}
+
+.memury-context-shell {
+  max-width: 1040px;
+}
+
+.memury-context-surface {
+  padding: clamp(20px, 4vw, 40px) !important;
+}
+
+.memury-context-shell .memury-card,
+.memury-context-shell .memury-surface {
+  margin-inline: 0;
+}
+
+.memury-shell textarea,
+.memury-context-shell textarea,
+.memury-shell input,
+.memury-context-shell input {
+  background: #0f1823 !important;
+  border-color: var(--memury-border-strong) !important;
+  color: var(--memury-text-primary) !important;
+  caret-color: var(--memury-accent);
+}
+
+.memury-shell textarea::placeholder,
+.memury-context-shell textarea::placeholder,
+.memury-shell input::placeholder,
+.memury-context-shell input::placeholder {
+  color: var(--memury-text-muted) !important;
+  opacity: 1;
+}
+
+.memury-empty,
+.memury-error,
+.memury-loading {
+  background: var(--memury-surface);
+  border: 1px solid var(--memury-border);
+  border-radius: var(--memury-radius-md);
+  color: var(--memury-text-secondary);
+  margin: var(--memury-space-5) 0;
+  padding: var(--memury-space-6);
+}
+
+@media (hover: hover) and (pointer: fine) {
+  body.memury-ui-surface .ic-app-header__menu-list-link:hover {
+    background: var(--memury-accent-soft) !important;
+    color: var(--memury-text-primary) !important;
+  }
+
+  .memury-shell a:hover,
+  .memury-context-shell a:hover {
+    color: var(--memury-accent-hover);
+  }
+
+  .memury-risk-row:hover,
+  .memury-study-row:hover {
+    border-color: var(--memury-border-strong);
+  }
+}
+
+@media (max-width: 760px) {
+  .memury-shell,
+  .memury-context-shell {
+    padding: 22px 14px 56px !important;
+  }
+
+  .memury-page-header,
+  .memury-context-toolbar {
+    align-items: stretch;
+    flex-direction: column;
+    gap: var(--memury-space-4);
+    margin-bottom: var(--memury-space-5);
+  }
+
+  .memury-page-header h1,
+  .memury-context-toolbar h1 {
+    font-size: 1.75rem;
+  }
+
+  .memury-toolbar {
+    display: grid;
+    grid-template-columns: 1fr;
+    justify-content: stretch;
+  }
+
+  .memury-toolbar > *,
+  .memury-toolbar button,
+  .memury-toolbar [class*='baseButton__content'] {
+    width: 100%;
+  }
+
+  .memury-card,
+  .memury-surface,
+  .memury-card--featured,
+  .memury-course-directory > .memury-card {
+    border-radius: var(--memury-radius-sm);
+    padding: var(--memury-space-4) !important;
+  }
+
+  .memury-study-row {
+    align-items: stretch;
+    grid-template-columns: 1fr;
+  }
+
+  .memury-study-row__heading,
+  .memury-risk-row__header {
+    align-items: flex-start;
+  }
+
+  .memury-study-row__actions {
+    justify-content: flex-start;
+  }
+
+  .memury-study-row__actions > *,
+  .memury-study-row__actions button,
+  .memury-study-row__actions [class*='baseButton__content'] {
+    flex: 1 1 120px;
+  }
+}
+
+@media (max-width: 420px) {
+  .memury-snapshot > div,
+  .memury-snapshot [class*='display-flex'] {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .memury-risk-row__header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: var(--memury-space-2);
+  }
+
+  .memury-risk-score {
+    align-self: flex-start;
+  }
+}
+
+@media (prefers-reduced-transparency: reduce) {
+  body.memury-ui-surface .ic-app-header,
+  body.memury-ui-surface .ic-app-nav-toggle-and-crumbs {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: #0f1721 !important;
+  }
+}
+
+@supports not (backdrop-filter: blur(1px)) {
+  body.memury-ui-surface .ic-app-header,
+  body.memury-ui-surface .ic-app-nav-toggle-and-crumbs {
+    background: #0f1721 !important;
+  }
+}
+
+@media (prefers-contrast: more) {
+  .memury-card,
+  .memury-surface,
+  .memury-risk-row,
+  .memury-study-row,
+  .memury-concept-card,
+  .memury-course-assignment {
+    border-color: var(--memury-text-secondary);
+  }
+
+  .memury-shell a,
+  .memury-context-shell a {
+    text-decoration-thickness: 2px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .memury-shell *,
+  .memury-shell *::before,
+  .memury-shell *::after,
+  .memury-context-shell *,
+  .memury-context-shell *::before,
+  .memury-context-shell *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+    transform: none !important;
+  }
+}
