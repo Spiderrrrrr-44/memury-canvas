@@ -5,6 +5,8 @@ require "json_schemer"
 module Memury
   module Ai
     module TeachingDiagnosisSchema
+      VERSION = "memury-teaching-diagnosis.v1"
+
       MISCONCEPTION_TYPES = %w[
         conceptual
         procedural
@@ -23,16 +25,16 @@ module Memury
       CANONICAL_SCHEMA = {
         "type" => "object",
         "additionalProperties" => false,
-        "required" => [
-          "diagnosis_summary",
-          "answer_judgment",
-          "misconception_type",
-          "evidence",
-          "confidence",
-          "verification_question",
-          "hint",
-          "transfer_question",
-          "learner_state_suggestion"
+        "required" => %w[
+          diagnosis_summary
+          answer_judgment
+          misconception_type
+          evidence
+          confidence
+          verification_question
+          hint
+          transfer_question
+          learner_state_suggestion
         ],
         "properties" => {
           "diagnosis_summary" => {

@@ -213,6 +213,31 @@ describe Memury::Ai::TeachingDiagnosisService do
     expect(logger_io.string).not_to include(context[:student_answer])
   end
 
+  it "records bounded provider metadata without retaining raw responses" do
+    stub_request(:post, endpoint).to_return(
+      status: 200,
+      headers: { "x-request-id" => "req-memury-test" },
+      body: {
+        id: "resp-memury-test",
+        status: "completed",
+        usage: { input_tokens: 12, output_tokens: 8, total_tokens: 20 },
+        output_text: JSON.generate(diagnostic_payload)
+      }.to_json
+    )
+
+    result = service_result
+
+    expect(result.metadata).to include(
+      "provider" => "openai",
+      "model" => "gpt-5.4",
+      "request_id" => "req-memury-test",
+      "schema_version" => Memury::Ai::TeachingDiagnosisSchema::VERSION,
+      "status" => "success"
+    )
+    expect(result.metadata.fetch("token_usage")).to include("total_tokens" => 20)
+    expect(result.metadata).not_to have_key("raw_response")
+  end
+
   it "falls back when the provider rejects Structured Outputs" do
     stub_request(:post, endpoint)
       .to_return(

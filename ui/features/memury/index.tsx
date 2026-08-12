@@ -36,6 +36,7 @@ import {
   MemuryToday,
 } from './surfaces'
 import type {MemuryContext, MemuryState} from './types'
+import {ProductApp} from './product_app'
 import './theme'
 import './memury.css'
 
@@ -476,7 +477,7 @@ function contextFromRoot(root: HTMLElement): MemuryContext {
 const root = document.getElementById('memury-root')
 const dashboardRoot = document.getElementById('memury-dashboard-root')
 const contextRoot = document.getElementById('memury-context-root')
-if (root) createRoot(root).render(<MemuryApp />)
+if (root) createRoot(root).render(<ProductApp />)
 else if (dashboardRoot) createRoot(dashboardRoot).render(<MemuryContextSurface context={contextFromRoot(dashboardRoot)} />)
 else if (contextRoot) createRoot(contextRoot).render(<MemuryContextSurface context={contextFromRoot(contextRoot)} />)
 /*

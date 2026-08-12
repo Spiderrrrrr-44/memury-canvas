@@ -1,47 +1,56 @@
 # frozen_string_literal: true
 
-require "set"
-
 module Memury
   class PublicStateSerializer
-    SENSITIVE_KEYS = [
-      "reference_answer",
-      "referenceAnswer",
-      "standard_answer",
-      "standardAnswer",
-      "correct_answer",
-      "correctAnswer",
-      "expected_answer",
-      "expectedAnswer",
-      "model_answer",
-      "modelAnswer",
-      "answer_key",
-      "answerKey",
-      "provider_prompt",
-      "providerPrompt",
-      "provider_raw_body",
-      "providerRawBody",
-      "provider_response",
-      "providerResponse",
-      "provider_response_body",
-      "providerResponseBody",
-      "provider_response_text",
-      "providerResponseText",
-      "raw_response",
-      "rawResponse",
-      "raw_body",
-      "rawBody",
-      "raw_provider_body",
-      "rawProviderBody",
-      "raw_prompt",
-      "rawPrompt",
-      "prompt",
-      "exception_backtrace",
-      "exceptionBacktrace",
-      "backtrace",
-      "stack_trace",
-      "stackTrace",
-      "authorization"
+    SENSITIVE_KEYS = %w[
+      reference_answer
+      referenceAnswer
+      standard_answer
+      standardAnswer
+      correct_answer
+      correctAnswer
+      expected_answer
+      expectedAnswer
+      candidate_expected_answer
+      candidateExpectedAnswer
+      candidate_explanation
+      candidateExplanation
+      scoring_basis
+      scoringBasis
+      model_answer
+      modelAnswer
+      answer_key
+      answerKey
+      provider_prompt
+      providerPrompt
+      provider_raw_body
+      providerRawBody
+      provider_response
+      providerResponse
+      provider_response_body
+      providerResponseBody
+      provider_response_text
+      providerResponseText
+      raw_response
+      rawResponse
+      raw_body
+      rawBody
+      raw_provider_body
+      rawProviderBody
+      raw_prompt
+      rawPrompt
+      prompt
+      practice_candidate
+      trace_session_key
+      trace_session_id
+      last_transfer_request_key
+      last_transfer_processed_at
+      exception_backtrace
+      exceptionBacktrace
+      backtrace
+      stack_trace
+      stackTrace
+      authorization
     ].to_set.freeze
 
     class << self

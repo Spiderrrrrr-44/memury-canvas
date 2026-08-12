@@ -8,6 +8,9 @@ describe MemuryController do
     Account.default.enable_feature!(:memury)
     @user = user_factory
     user_session(@user)
+    # Controller regressions must never reach a real provider or incur a paid
+    # request; dynamic provider behavior is covered by the fake-provider spec.
+    allow(Memury::Teaching::ProviderRegistry).to receive(:current).and_return(Memury::Teaching::DeterministicProvider.new)
   end
 
   def recursive_key_paths(value, target_key, path = [], matches = [])
@@ -52,7 +55,11 @@ describe MemuryController do
     expect(response.parsed_body.dig("learning_session", "active_hint")).to be_present
 
     patch :action, params: { event: "start_transfer" }, format: :json
-    patch :action, params: { event: "answer_transfer", correct: true }, format: :json
+    patch :action, params: {
+      event: "answer_transfer",
+      correct: true,
+      student_answer: "桌面对书的支持力与书对桌面的压力作用在不同物体上，不是一对平衡力。"
+    }, format: :json
     completed = response.parsed_body
 
     expect(completed.fetch("phase")).to eq("complete")
@@ -71,7 +78,11 @@ describe MemuryController do
     patch :action, params: { event: "answer_recall", correct: false }, format: :json
     patch :action, params: { event: "answer_verification" }, format: :json
     patch :action, params: { event: "start_transfer" }, format: :json
-    patch :action, params: { event: "answer_transfer", correct: true }, format: :json
+    patch :action, params: {
+      event: "answer_transfer",
+      correct: true,
+      student_answer: "桌面对书的支持力与书对桌面的压力作用在不同物体上，不是一对平衡力。"
+    }, format: :json
 
     completed = response.parsed_body
     completed_mastery = completed.dig("concept", "mastery")
@@ -186,7 +197,11 @@ describe MemuryController do
     patch :action, params: { event: "start_transfer" }, format: :json
     expect_public_state_to_hide_sensitive_data(response.parsed_body, secret)
 
-    patch :action, params: { event: "answer_transfer", correct: true }, format: :json
+    patch :action, params: {
+      event: "answer_transfer",
+      correct: true,
+      student_answer: secret
+    }, format: :json
     completed = response.parsed_body
     expect_public_state_to_hide_sensitive_data(completed, secret)
     expect(completed.fetch("phase")).to eq("complete")
@@ -250,6 +265,18 @@ describe MemuryController do
       latency_ms: 12
     )
     allow(Memury::Ai::TeachingDiagnosisService).to receive(:call).and_return(result)
+    ai_provider = instance_double(
+      Memury::Teaching::Provider,
+      diagnose: Memury::Teaching::Diagnosis.new(
+        **diagnosis.symbolize_keys,
+        source: "ai",
+        fallback_reason: nil,
+        compatibility_note: nil,
+        latency_ms: 12,
+        metadata: { "provider" => "fake_openai", "status" => "success" }
+      )
+    )
+    allow(Memury::Teaching::ProviderRegistry).to receive(:current).and_return(ai_provider)
 
     post :reset, format: :json
     patch :action, params: { event: "answer_recall", student_answer: "我觉得它们是平衡力，因为方向相反。" }, format: :json
@@ -319,7 +346,11 @@ describe MemuryController do
     patch :action, params: { event: "answer_recall", correct: false }, format: :json
     patch :action, params: { event: "answer_verification" }, format: :json
     patch :action, params: { event: "start_transfer" }, format: :json
-    patch :action, params: { event: "answer_transfer", correct: true }, format: :json
+    patch :action, params: {
+      event: "answer_transfer",
+      correct: true,
+      student_answer: "桌面对书的支持力与书对桌面的压力作用在不同物体上，不是一对平衡力。"
+    }, format: :json
 
     completed = response.parsed_body
     next_block = completed.fetch("study_blocks").find { |block| block["source_type"] == "replan" }

@@ -40,7 +40,11 @@ describe Memury::PublicStateSerializer do
       },
       "evidence" => [
         {"title" => "observed", "notes" => "student evidence"}
-      ]
+      ],
+      "learning_session" => {
+        "last_transfer_request_key" => marker,
+        "last_transfer_processed_at" => "2026-08-10T10:00:00Z"
+      }
     }
 
     serialized = described_class.call(state)
@@ -54,6 +58,8 @@ describe Memury::PublicStateSerializer do
     expect(recursive_key_paths(serialized, "provider_raw_body")).to be_empty
     expect(recursive_key_paths(serialized, "stack_trace")).to be_empty
     expect(recursive_key_paths(serialized, "authorization")).to be_empty
+    expect(recursive_key_paths(serialized, "last_transfer_request_key")).to be_empty
+    expect(recursive_key_paths(serialized, "last_transfer_processed_at")).to be_empty
     expect(JSON.generate(serialized)).not_to include(marker)
     expect(serialized.dig("diagnostic", "provider_response")).to be_nil
     expect(serialized.dig("evidence", 0, "notes")).to eq("student evidence")

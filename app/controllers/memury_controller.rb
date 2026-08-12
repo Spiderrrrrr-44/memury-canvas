@@ -1,7 +1,13 @@
 # frozen_string_literal: true
 
+require "digest"
+require "json"
+
 class MemuryController < ApplicationController
+  class LearningStateConflict < StandardError; end
+
   TERMINAL_BLOCK_STATUSES = %w[completed skipped].freeze
+  TRACE_REQUIRED_EVENTS = %w[answer_transfer complete_block skip_block reschedule_block].freeze
 
   HINTS = [
     "先分别标出每个力作用在哪个物体上。",
@@ -34,6 +40,7 @@ class MemuryController < ApplicationController
     state["last_synced_at"] = Time.zone.now.iso8601
     state["sync_summary"] = { "courses" => canvas[:courses].length, "assignments" => canvas[:assignments].length }
     @profile.update!(state:, last_synced_at: Time.zone.now)
+    Memury::Scheduler.call(user: @current_user, assignments: presentable_assignments(state))
     render json: present_state
   end
 
@@ -43,7 +50,108 @@ class MemuryController < ApplicationController
   end
 
   def action
+    supported_events = %w[
+      start_study_block
+      answer_recall
+      answer_verification
+      request_hint
+      start_transfer
+      answer_transfer
+      return_home
+      complete_block
+      skip_block
+      reschedule_block
+    ]
+    return render json: { error: "unsupported event" }, status: :unprocessable_content unless supported_events.include?(params[:event].to_s)
+
     state = @profile.state.deep_dup
+    before_state = state.deep_dup
+    if params[:event].to_s == "answer_transfer" && duplicate_transfer_request?(state)
+      return render json: present_state
+    end
+
+    begin
+      # Provider calls and state calculation intentionally happen before the
+      # row lock. Network latency must never hold a database transaction open.
+      dispatch_event(state)
+
+      @profile.with_lock do
+        # The lock is acquired only for the final atomic persistence. Refuse
+        # to overwrite a concurrent learning event calculated from an older
+        # snapshot; callers can retry with a fresh state.
+        raise LearningStateConflict unless @profile.state.deep_dup == before_state
+
+        Memury::Learning::TraceRecorder.record_event!(
+          user: @current_user,
+          state:,
+          event: params[:event].to_s,
+          params:,
+          before_state:,
+          now: Time.zone.now,
+          required: TRACE_REQUIRED_EVENTS.include?(params[:event].to_s)
+        )
+        @profile.update!(state:)
+      end
+    rescue LearningStateConflict
+      return render json: { error: "learning_state_conflict" }, status: :conflict
+    rescue Memury::Learning::TraceRecorder::StorageUnavailable => e
+      return render json: { error: e.reason }, status: :service_unavailable
+    rescue ActiveRecord::StatementInvalid, ActiveRecord::RecordInvalid => e
+      raise unless TRACE_REQUIRED_EVENTS.include?(params[:event].to_s)
+
+      Rails.logger.error("Memury learning transaction rolled back: #{e.class}")
+      return render json: { error: "trace_storage_unavailable" }, status: :service_unavailable
+    end
+    render json: present_state
+  end
+
+  def replan
+    Memury::Scheduler.call(user: @current_user, assignments: presentable_assignments(@profile.state))
+    render json: present_state
+  end
+
+  def create_event
+    semester_commands.create_event(event_params)
+    replan
+  end
+
+  def update_event
+    semester_commands.update_event(params[:id], event_params)
+    replan
+  end
+
+  def destroy_event
+    semester_commands.delete_event(params[:id])
+    replan
+  end
+
+  def update_plan_block
+    semester_commands.update_plan_block(params[:id], plan_block_params)
+    render json: present_state
+  end
+
+  def focus
+    semester_commands.focus(params[:command], focus_params)
+    render json: present_state
+  end
+
+  def create_question
+    semester_commands.create_question(question_params)
+    render json: present_state
+  end
+
+  def update_question
+    semester_commands.update_question(params[:id], question_params)
+    render json: present_state
+  end
+
+  private
+
+  def require_memury
+    render_unauthorized_action unless @domain_root_account&.feature_enabled?(:memury)
+  end
+
+  def dispatch_event(state)
     case params[:event]
     when "start_study_block"
       start_study_block(state)
@@ -65,18 +173,7 @@ class MemuryController < ApplicationController
     when "reschedule_block"
       reschedule_block(state)
       replan_blocks(state)
-    else
-      return render json: { error: "unsupported event" }, status: :unprocessable_content
     end
-
-    @profile.update!(state:)
-    render json: present_state
-  end
-
-  private
-
-  def require_memury
-    render_unauthorized_action unless @domain_root_account&.feature_enabled?(:memury)
   end
 
   def load_profile
@@ -129,26 +226,31 @@ class MemuryController < ApplicationController
     student_answer = params[:student_answer].to_s.strip
 
     if student_answer.present?
-      diagnostic_result = Memury::Ai::TeachingDiagnosisService.call(
-        course_or_subject: current_course_or_subject(state),
-        knowledge_point: state.fetch("concept").fetch("name"),
-        question: session.fetch("recall_question", recall_question),
-        scoring_basis: state.dig("concept", "reference_answer"),
-        student_answer:,
-        learner_state_summary: learner_state_summary(state)
+      diagnostic_result = teaching_provider.diagnose(
+        Memury::Teaching::TutorContext.from_state(state, student_answer:)
       )
 
-      diagnostic = diagnostic_result.diagnostic.merge(
-        "source" => diagnostic_result.source,
-        "answer_judgment" => diagnostic_result.diagnostic["answer_judgment"]
+      diagnostic = diagnostic_result.to_h.slice(
+        "diagnosis_summary",
+        "answer_judgment",
+        "misconception_type",
+        "evidence",
+        "confidence",
+        "verification_question",
+        "hint",
+        "transfer_question",
+        "learner_state_suggestion",
+        "source"
       )
       state["diagnostic"] = diagnostic
+      provider_metadata = diagnostic_result.metadata if diagnostic_result.respond_to?(:metadata)
       state["diagnostic_meta"] = {
         "fallback_reason" => diagnostic_result.fallback_reason,
         "compatibility_note" => diagnostic_result.compatibility_note,
-        "latency_ms" => diagnostic_result.latency_ms
+        "latency_ms" => diagnostic_result.latency_ms,
+        "provider_metadata" => provider_metadata
       }.compact
-      session["recall_correct"] = diagnostic.fetch("answer_judgment") == "correct"
+      session["recall_correct"] = diagnostic_result.answer_judgment == "correct"
       state["hypotheses"] = hypotheses_from_diagnostic(diagnostic)
       state["phase"] = "verify"
       append_evidence(state, "自由回答诊断：#{diagnostic.fetch("diagnosis_summary")}")
@@ -176,6 +278,7 @@ class MemuryController < ApplicationController
     state["phase"] = "repair"
     state["verified_hypothesis"] = state.dig("diagnostic", "diagnosis_summary").presence || "概念混淆：未区分力的受力物体"
     state.fetch("learning_session")["hypothesis_verified"] = true
+    state["guidance"] = teaching_provider.guide(Memury::Teaching::TutorContext.from_state(state)).to_h
     activate_block(state, "repair")
   end
 
@@ -189,36 +292,180 @@ class MemuryController < ApplicationController
 
   def start_transfer(state)
     complete_block(state, "repair")
+    prepare_transfer_practice(state)
     state["phase"] = "transfer"
     activate_block(state, "transfer")
   end
 
   def update_learning_state(state)
     session = state.fetch("learning_session")
-    transfer_correct = ActiveModel::Type::Boolean.new.cast(params[:correct])
+    validation = validate_transfer(state)
+    session["transfer_validation"] = validation.to_h
+    session["last_transfer_request_key"] = transfer_request_key(state)
+    session["last_transfer_processed_at"] = Time.zone.now.iso8601
+    transfer_correct = validation.verified
     concept = state.fetch("concept")
+    before_confidence = concept["confidence"]
+    before_plan = planning_snapshot(state)
     result = Memury::LearnerStateUpdater.call(
       current_mastery: concept.fetch("mastery"),
       diagnostic_correct: session.fetch("recall_correct", false),
       used_hint: session.fetch("used_hint", false),
       hypothesis_verified: session.fetch("hypothesis_verified", false),
-      transfer_correct:
+      transfer_correct:,
+      validated: validation.verified,
+      current_confidence: concept["confidence"]
     )
     concept.merge!(result.stringify_keys)
     session["transfer_correct"] = transfer_correct
-    session["completed_at"] = Time.zone.now.iso8601
+    session["evidence_summary"] = teaching_provider.summarize_evidence(
+      Memury::Teaching::EvidenceContext.new(
+        evidence: [
+          { "kind" => "recall",
+            "verified" => session.fetch("recall_correct", false),
+            "validation_basis" => "legacy_demo_signal" },
+          { "kind" => "hypothesis",
+            "verified" => session.fetch("hypothesis_verified", false),
+            "validation_basis" => session.fetch("hypothesis_verified", false) ? "deterministic_rule" : "insufficient_basis" },
+          { "kind" => "transfer",
+            "verified" => validation.verified,
+            "validation_basis" => validation.validation_basis,
+            "reason_code" => validation.reason_code,
+            "hint_dependent" => validation.hint_dependent }
+        ]
+      )
+    ).to_h
     target_id = session.fetch("target_assignment_id")
-    state["completed_assignment_ids"] = (state.fetch("completed_assignment_ids", []) + [target_id]).uniq
-    state["recent_activity_at"] = Time.zone.now.iso8601
-    state["phase"] = "complete"
-    complete_block(state, "transfer")
+    if transfer_correct
+      session["completed_at"] = Time.zone.now.iso8601
+      state["completed_assignment_ids"] = (state.fetch("completed_assignment_ids", []) + [target_id]).uniq
+      state["recent_activity_at"] = Time.zone.now.iso8601
+      state["phase"] = "complete"
+      complete_block(state, "transfer")
+    else
+      # A failed or legacy transfer attempt is a recorded learning event, not
+      # a completed assignment. Keep the user on the transfer step so the UI
+      # can offer another attempt without fabricating success.
+      session.delete("completed_at")
+      session["failed_at"] = Time.zone.now.iso8601
+      state["phase"] = "transfer"
+      activate_block(state, "transfer")
+    end
     append_evidence(state, "Transfer 迁移题#{transfer_correct ? "答对" : "未通过"}")
-    state["decision_logs"] << {
+    before_mastery = result.fetch(:previous_mastery)
+    decision = {
       "at" => Time.zone.now.iso8601,
       "reason" => result[:reason],
-      "change" => "掌握度 #{result[:previous_mastery]} → #{result[:mastery]}；已重排下一行动"
+      "change" => transfer_correct ? "掌握度 #{result[:previous_mastery]} → #{result[:mastery]}；已重排下一行动" : "验证未通过，掌握度与计划保持不变",
+      "reason_code" => legacy_reason_code(validation),
+      "trigger_evidence" => "transfer_validation",
+      "before" => { "mastery" => before_mastery, "confidence" => before_confidence },
+      "after" => { "mastery" => result[:mastery], "confidence" => result[:confidence] },
+      "risk_before" => before_plan.fetch("risk"),
+      "risk_after" => nil,
+      "plan_before" => before_plan,
+      "plan_after" => nil
     }
-    replan_blocks(state)
+    replan_blocks(state) if transfer_correct
+    after_plan = planning_snapshot(state)
+    decision["risk_after"] = after_plan.fetch("risk")
+    decision["plan_after"] = after_plan
+    state["decision_logs"] << decision
+  end
+
+  def prepare_transfer_practice(state)
+    practice_context = Memury::Teaching::PracticeContext.from_state(state)
+    candidate = teaching_provider.generate_practice(practice_context)
+    validation = teaching_provider.validate_practice(
+      Memury::Teaching::ValidatorContext.for_candidate(candidate:, context: practice_context)
+    )
+    unless validation.verified
+      fallback_provider = Memury::Teaching::DeterministicProvider.new
+      candidate = fallback_provider.generate_practice(practice_context)
+      validation = fallback_provider.validate_practice(
+        Memury::Teaching::ValidatorContext.for_candidate(candidate:, context: practice_context)
+      )
+    end
+
+    session = state.fetch("learning_session")
+    session["practice_candidate"] = candidate.to_h
+    session["practice_validation"] = validation.to_h
+    state["diagnostic"]["transfer_question"] = candidate.prompt if validation.verified && state["diagnostic"].is_a?(Hash)
+  end
+
+  def validate_transfer(state)
+    session = state.fetch("learning_session")
+    candidate_payload = session["practice_candidate"].to_h
+    candidate = if candidate_payload["prompt"].present? && candidate_payload["expected_answer"].present?
+                  Memury::Teaching::PracticeCandidate.new(
+                    id: candidate_payload["id"],
+                    prompt: candidate_payload["prompt"],
+                    expected_answer: candidate_payload["expected_answer"],
+                    explanation: candidate_payload["explanation"],
+                    knowledge_point: candidate_payload["knowledge_point"],
+                    difficulty: candidate_payload["difficulty"],
+                    source: candidate_payload["source"]
+                  )
+                else
+                  context = Memury::Teaching::PracticeContext.from_state(state)
+                  teaching_provider.generate_practice(context)
+                end
+    context = Memury::Teaching::PracticeContext.from_state(state)
+    legacy_correct = params.key?(:correct) ? ActiveModel::Type::Boolean.new.cast(params[:correct]) : nil
+    answer = params[:student_answer].presence || params[:transfer_answer].presence || ""
+    teaching_provider.assess_transfer(
+      Memury::Teaching::ValidatorContext.for_transfer(
+        candidate:, context:, student_answer: answer, legacy_correct:, hint_dependent: session.fetch("used_hint", false)
+      )
+    )
+  end
+
+  def legacy_reason_code(validation)
+    return "legacy_demo_answer_failed" if validation.reason_code == "legacy_demo_signal" && !params[:correct].to_s.casecmp("true").zero?
+
+    validation.reason_code
+  end
+
+  def duplicate_transfer_request?(state)
+    session = state.fetch("learning_session", {})
+    session["last_transfer_request_key"].present? && session["last_transfer_request_key"] == transfer_request_key(state)
+  end
+
+  def transfer_request_key(state)
+    session = state.fetch("learning_session", {})
+    payload = {
+      "candidate_id" => session.dig("practice_candidate", "id"),
+      "student_answer" => params[:student_answer].to_s,
+      "transfer_answer" => params[:transfer_answer].to_s,
+      "correct" => params[:correct].to_s,
+      "hint_level" => session.fetch("hint_level", 0)
+    }
+    Digest::SHA256.hexdigest(JSON.generate(payload))
+  end
+
+  def planning_snapshot(state)
+    all_ranked = Memury::RiskEngine.call(
+      assignments: state.fetch("assignments", []),
+      sis_events: state.fetch("sis_events", []),
+      concept: state.fetch("concept"),
+      recent_activity_at: state["recent_activity_at"],
+      completed_assignment_ids: state.fetch("completed_assignment_ids", [])
+    )
+    next_assignment = ranked_assignments(state).first
+    target_id = state.dig("learning_session", "target_assignment_id").to_s
+    target = all_ranked.find { |assignment| assignment["id"].to_s == target_id }
+    {
+      "next_assignment_id" => next_assignment&.fetch("id", nil),
+      "next_risk" => next_assignment&.fetch("risk", nil),
+      "risk" => target&.fetch("risk", nil),
+      "study_blocks" => state.fetch("study_blocks", []).map do |block|
+        block.slice("id", "stage", "status", "starts_at", "duration_minutes")
+      end
+    }
+  end
+
+  def teaching_provider
+    @teaching_provider ||= Memury::Teaching::ProviderRegistry.current
   end
 
   def update_requested_block(state)
@@ -372,9 +619,41 @@ class MemuryController < ApplicationController
 
   def present_state
     state = @profile.state.deep_dup
+    evidence_state = Memury::EvidenceSignalProjector.call(user: @current_user, state:)
     state["hint_catalog_size"] = HINTS.length
-    public_state = Memury::PublicStateBuilder.call(state:, context: state_context)
-    Memury::PublicStateSerializer.call(public_state)
+    public_state = Memury::PublicStateBuilder.call(state: evidence_state, context: state_context)
+    semester = Memury::SemesterStateBuilder.call(user: @current_user, state: evidence_state)
+    Memury::PublicStateSerializer.call(public_state.merge("semester_memory" => semester))
+  end
+
+  def presentable_assignments(state)
+    Memury::RiskEngine.call(
+      assignments: state.fetch("assignments", []), sis_events: state.fetch("sis_events", []),
+      concept: state.fetch("concept", {}), recent_activity_at: state["recent_activity_at"],
+      completed_assignment_ids: state.fetch("completed_assignment_ids", [])
+    )
+  end
+
+  def semester_commands
+    @semester_commands ||= Memury::SemesterCommandService.new(user: @current_user)
+  end
+
+  def event_params
+    params.permit(:title, :starts_at, :ends_at, :availability, :recurrence_rule, :locked, :course_id, :source_kind).to_h.symbolize_keys
+  end
+
+  def plan_block_params
+    params.permit(:starts_at, :ends_at, :locked, :status).to_h.symbolize_keys
+  end
+
+  def focus_params
+    params.permit(:course_id, :assignment_id, :plan_block_id).to_h.symbolize_keys
+  end
+
+  def question_params
+    params.permit(
+      :content, :concept, :source_kind, :course_id, :assignment_id, :review_at, :status, :resolution_note
+    ).to_h.symbolize_keys
   end
 
   def state_context

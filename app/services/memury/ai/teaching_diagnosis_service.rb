@@ -3,23 +3,24 @@
 require "net/http"
 require "json"
 require "uri"
-require "set"
+require_relative "structured_response_client"
 
 module Memury
   module Ai
     class TeachingDiagnosisService
-      Result = Struct.new(
-        :diagnostic,
-        :source,
-        :fallback_reason,
-        :compatibility_note,
-        :latency_ms,
-        keyword_init: true
-      )
+      class Result
+        attr_accessor :diagnostic, :source, :fallback_reason, :compatibility_note, :latency_ms, :metadata
 
-      DEFAULT_OPEN_TIMEOUT_SECONDS = 5
-      DEFAULT_READ_TIMEOUT_SECONDS = 20
-      DEFAULT_WRITE_TIMEOUT_SECONDS = 10
+        def initialize(diagnostic:, source:, fallback_reason:, compatibility_note:, latency_ms:, metadata:)
+          @diagnostic = diagnostic
+          @source = source
+          @fallback_reason = fallback_reason
+          @compatibility_note = compatibility_note
+          @latency_ms = latency_ms
+          @metadata = metadata
+        end
+      end
+
       DEFAULT_MAX_OUTPUT_TOKENS = 500
 
       class << self
@@ -28,7 +29,14 @@ module Memury
         end
       end
 
-      def initialize(course_or_subject:, knowledge_point:, question:, student_answer:, learner_state_summary:, scoring_basis: nil, logger: Rails.logger)
+      def initialize(course_or_subject:,
+                     knowledge_point:,
+                     question:,
+                     student_answer:,
+                     learner_state_summary:,
+                     scoring_basis: nil,
+                     logger: Rails.logger,
+                     client: nil)
         @course_or_subject = course_or_subject
         @knowledge_point = knowledge_point
         @question = question
@@ -36,9 +44,16 @@ module Memury
         @learner_state_summary = learner_state_summary
         @scoring_basis = scoring_basis
         @logger = logger
+        @client = client || StructuredResponseClient.new(logger:)
       end
 
       def call
+        @metadata = {
+          "provider" => "openai",
+          "model" => model.presence,
+          "schema_version" => TeachingDiagnosisSchema::VERSION,
+          "status" => "failure"
+        }.compact
         return fallback_result("AI diagnosis disabled") unless ai_enabled?
         return fallback_result("OPENAI_API_KEY missing") if openai_api_key.blank?
         return fallback_result("OPENAI_BASE_URL missing") if openai_base_url.blank?
@@ -47,23 +62,34 @@ module Memury
         start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
         result = perform_request
         latency_ms = elapsed_ms(start_time)
-        return result.tap { |r| r.latency_ms = latency_ms } if result.is_a?(Result)
+        if result.is_a?(Result)
+          return result.tap do |r|
+            r.latency_ms = latency_ms
+            r.metadata = @metadata.merge("latency_ms" => latency_ms)
+          end
+        end
 
         fallback_result(fallback_reason(result), latency_ms:)
-      rescue StandardError => e
+      rescue => e
         fallback_result(error_reason(e), latency_ms: elapsed_ms(start_time))
       end
 
       private
 
-      attr_reader :course_or_subject, :knowledge_point, :question, :student_answer, :learner_state_summary,
-                  :scoring_basis, :logger
+      attr_reader :course_or_subject,
+                  :knowledge_point,
+                  :question,
+                  :student_answer,
+                  :learner_state_summary,
+                  :scoring_basis,
+                  :logger,
+                  :client
 
       def ai_enabled?
-        parse_boolean_env("MEMURY_AI_ENABLED")
+        parse_boolean_env?("MEMURY_AI_ENABLED")
       end
 
-      def parse_boolean_env(name)
+      def parse_boolean_env?(name)
         raw = ENV[name]
         return false if raw.nil?
 
@@ -91,18 +117,6 @@ module Memury
         ENV["MEMURY_AI_MODEL"].to_s.strip
       end
 
-      def open_timeout_seconds
-        integer_env("MEMURY_AI_OPEN_TIMEOUT_SECONDS", DEFAULT_OPEN_TIMEOUT_SECONDS)
-      end
-
-      def read_timeout_seconds
-        integer_env("MEMURY_AI_READ_TIMEOUT_SECONDS", DEFAULT_READ_TIMEOUT_SECONDS)
-      end
-
-      def write_timeout_seconds
-        integer_env("MEMURY_AI_WRITE_TIMEOUT_SECONDS", DEFAULT_WRITE_TIMEOUT_SECONDS)
-      end
-
       def max_output_tokens
         integer_env("MEMURY_AI_MAX_OUTPUT_TOKENS", DEFAULT_MAX_OUTPUT_TOKENS)
       end
@@ -114,32 +128,38 @@ module Memury
       end
 
       def perform_request
-        payload = request_payload
-        response = post_json(responses_endpoint, payload)
-        return parse_response(response) if response.is_a?(Net::HTTPSuccess)
-
-        @compatibility_note = compatibility_note_for(response)
-
-        response
+        perform_structured_request
       end
 
-      def request_payload
-        payload = {
-          model:,
+      def perform_structured_request
+        result = client.call(
+          capability: "diagnose",
+          schema_name: "memury_teaching_diagnosis",
           instructions: prompt[:instructions],
           input: prompt[:input],
-          text: {
-            format: {
-              type: "json_schema",
-              name: "memury_teaching_diagnosis",
-              strict: true,
-              schema: TeachingDiagnosisSchema.provider_schema
-            }
-          },
+          schema: TeachingDiagnosisSchema.provider_schema,
+          schema_version: TeachingDiagnosisSchema::VERSION,
           max_output_tokens:
-        }
-        payload[:store] = false
-        payload
+        )
+        @metadata = @metadata.to_h.merge(result.metadata.to_h)
+        # Keep the existing parser as a final compatibility seam.  The shared
+        # client has already parsed and schema-checked the object; re-parsing
+        # the bounded object lets legacy instrumentation/tests observe the
+        # same safety boundary without retaining provider text.
+        candidate = parse_candidate_json(JSON.generate(result.data))
+        validate_diagnostic!(candidate)
+        Result.new(
+          diagnostic: normalize_diagnostic(candidate),
+          source: "ai",
+          fallback_reason: nil,
+          compatibility_note: nil,
+          latency_ms: result.metadata.to_h["latency_ms"],
+          metadata: @metadata
+        )
+      rescue StructuredResponseClient::Error => e
+        @metadata = @metadata.to_h.merge(e.metadata.to_h)
+        @compatibility_note = "structured outputs rejected" if e.category.in?(%w[http_400 http_422])
+        raise e
       end
 
       def prompt
@@ -147,148 +167,10 @@ module Memury
           course_or_subject:,
           knowledge_point:,
           question:,
-          scoring_basis: scoring_basis,
-          student_answer: student_answer,
-          learner_state_summary: learner_state_summary
+          scoring_basis:,
+          student_answer:,
+          learner_state_summary:
         )
-      end
-
-      def responses_endpoint
-        @responses_endpoint ||= URI.join(base_uri_with_trailing_slash, "responses")
-      end
-
-      def base_uri_with_trailing_slash
-        uri = URI.parse(openai_base_url)
-        uri.path = "#{uri.path}/" unless uri.path.end_with?("/")
-        uri.to_s
-      rescue URI::InvalidURIError
-        openai_base_url
-      end
-
-      def post_json(uri, payload)
-        http = Net::HTTP.new(uri.host, uri.port)
-        http.use_ssl = uri.scheme == "https"
-        http.open_timeout = open_timeout_seconds
-        http.read_timeout = read_timeout_seconds
-        http.write_timeout = write_timeout_seconds if http.respond_to?(:write_timeout=)
-
-        headers = {
-          "Authorization" => "Bearer #{openai_api_key}",
-          "Content-Type" => "application/json",
-          "Accept" => "application/json"
-        }
-        request = Net::HTTP::Post.new(uri.request_uri, headers)
-        request.body = JSON.generate(payload)
-
-        logger.info("Memury AI request | model=#{model} | endpoint=#{uri.host}#{uri.path} | store=#{payload.key?(:store) ? payload[:store] : 'omitted'} | student_answer_chars=#{student_answer.length}")
-        http.start { |client| client.request(request) }
-      rescue Timeout::Error, SocketError, SystemCallError, OpenSSL::SSL::SSLError => e
-        raise e
-      end
-
-      def parse_response(response)
-        body = response.body.to_s
-        raise StandardError, "empty response" if body.blank?
-
-        payload = JSON.parse(body)
-        assert_eligible_response!(payload)
-        candidate_text = extract_output_text(payload)
-        raise StandardError, "empty output text" if candidate_text.blank?
-
-        json = parse_candidate_json(candidate_text)
-        raise StandardError, "invalid JSON" if json.blank?
-
-        validate_diagnostic!(json)
-        normalized = normalize_diagnostic(json)
-        Result.new(diagnostic: normalized, source: "ai", fallback_reason: nil, compatibility_note: nil, latency_ms: nil)
-      rescue JSON::ParserError, StandardError => e
-        raise StandardError, e.message
-      end
-
-      def extract_output_text(payload)
-        return payload if payload.is_a?(String)
-        return nil unless payload.is_a?(Hash)
-
-        output_text = payload["output_text"]
-        return output_text.strip if output_text.is_a?(String) && output_text.present?
-
-        Array(payload["output"]).each do |item|
-          text = extract_text_from_output_item(item)
-          return text if text.present?
-        end
-
-        nil
-      end
-
-      def assert_eligible_response!(payload)
-        raise StandardError, "invalid response envelope" unless payload.is_a?(Hash)
-        raise StandardError, "response incomplete" unless payload["status"].to_s == "completed"
-        raise StandardError, "response incomplete" if payload["incomplete_details"].present?
-        raise StandardError, "response error" if payload["error"].present?
-
-        output = payload["output"]
-        return if top_level_output_text?(payload) && output.blank?
-
-        raise StandardError, "empty output" unless output.is_a?(Array) && output.any?
-
-        output.each do |item|
-          validate_output_item!(item)
-        end
-      end
-
-      def top_level_output_text?(payload)
-        payload["output_text"].is_a?(String) && payload["output_text"].present?
-      end
-
-      def validate_output_item!(item)
-        raise StandardError, "invalid output item" unless item.is_a?(Hash)
-        raise StandardError, "response incomplete" unless item["status"].to_s == "completed"
-        raise StandardError, "unsupported output type" unless item["type"].to_s == "message"
-
-        content = item["content"]
-        raise StandardError, "empty content" unless content.is_a?(Array) && content.any?
-
-        content.each do |content_item|
-          validate_content_item!(content_item)
-        end
-      end
-
-      def validate_content_item!(content_item)
-        raise StandardError, "invalid content item" unless content_item.is_a?(Hash)
-
-        type = content_item["type"].to_s
-        case type
-        when "output_text"
-          raise StandardError, "empty output text" unless content_item["text"].is_a?(String) && content_item["text"].present?
-        when "refusal"
-          raise StandardError, "refusal received"
-        else
-          raise StandardError, "unsupported content type"
-        end
-      end
-
-      def extract_text_from_output_item(item)
-        return nil unless item.is_a?(Hash)
-
-        item = item.with_indifferent_access
-        return item[:text].to_s if item[:type] == "output_text" && item[:text].present?
-
-        Array(item[:content]).each do |content|
-          text = extract_text_from_content_item(content)
-          return text if text.present?
-        end
-
-        nil
-      end
-
-      def extract_text_from_content_item(content)
-        return nil unless content.is_a?(Hash)
-
-        content = content.with_indifferent_access
-        return nil unless content[:text].is_a?(String) && content[:text].present?
-        return nil if content[:type].present? && content[:type] != "output_text"
-
-        content[:text].to_s
       end
 
       def parse_candidate_json(text)
@@ -337,7 +219,7 @@ module Memury
       end
 
       def safe_text?(text)
-        return false if text.match?(/```|<[^>]+>|<\/\w+>/i)
+        return false if text.match?(%r{```|<[^>]+>|</\w+>}i)
         return false if text.match?(/\b(?:drop|delete|truncate|alter|grant|revoke)\s+(?:table|database|schema|grade|score|permission|config)\b/i)
         return false if text.match?(/\b(?:update|modify|change|set)\b.*\b(?:grade|score|permission|role|config|database)\b/i)
 
@@ -400,16 +282,16 @@ module Memury
         longest_common_substring_length(compact_text(text), compact_text(reference)) >= overlap_threshold(reference)
       end
 
-      def longest_common_substring_length(a, b)
-        return 0 if a.blank? || b.blank?
+      def longest_common_substring_length(first_text, second_text)
+        return 0 if first_text.blank? || second_text.blank?
 
-        previous = Array.new(b.length + 1, 0)
+        previous = Array.new(second_text.length + 1, 0)
         longest = 0
 
-        a.each_char do |char_a|
-          current = Array.new(b.length + 1, 0)
-          b.each_char.with_index(1) do |char_b, index|
-            if char_a == char_b
+        first_text.each_char do |first_char|
+          current = Array.new(second_text.length + 1, 0)
+          second_text.each_char.with_index(1) do |second_char, index|
+            if first_char == second_char
               current[index] = previous[index - 1] + 1
               longest = [longest, current[index]].max
             end
@@ -422,7 +304,7 @@ module Memury
 
       def overlap_threshold(reference)
         compact_reference = compact_text(reference)
-        [12, [compact_reference.length - 2, 6].max].min
+        [compact_reference.length - 2, 6].max.clamp(0, 12)
       end
 
       def compact_text(value)
@@ -438,19 +320,29 @@ module Memury
       end
 
       def fallback_result(reason, latency_ms: nil)
+        fallback_metadata = {
+          "provider" => "deterministic_fallback",
+          "attempted_provider" => @metadata&.fetch("provider", nil),
+          "model" => @metadata&.fetch("model", nil),
+          "schema_version" => TeachingDiagnosisSchema::VERSION,
+          "status" => "fallback",
+          "error_category" => fallback_reason(reason),
+          "latency_ms" => latency_ms
+        }.compact
         Result.new(
           diagnostic: TeachingDiagnosisFallback.build(
             course_or_subject:,
             knowledge_point:,
             question:,
-            scoring_basis: scoring_basis,
-            student_answer: student_answer,
-            learner_state_summary: learner_state_summary
+            scoring_basis:,
+            student_answer:,
+            learner_state_summary:
           ),
           source: "rule_fallback",
           fallback_reason: fallback_reason(reason),
           compatibility_note: @compatibility_note,
-          latency_ms:
+          latency_ms:,
+          metadata: fallback_metadata
         )
       ensure
         logger.info("Memury AI fallback | reason=#{fallback_reason(reason)}")
@@ -458,6 +350,26 @@ module Memury
 
       def fallback_reason(reason)
         return reason if reason.is_a?(String)
+
+        if reason.is_a?(StructuredResponseClient::Error)
+          return "http #{reason.category.delete_prefix("http_")}" if reason.category.start_with?("http_")
+
+          return {
+            "ai_disabled" => "AI diagnosis disabled",
+            "missing_configuration" => "provider configuration missing",
+            "invalid_json" => "invalid JSON",
+            "schema_validation_failed" => "schema validation failed",
+            "refusal" => "refusal received",
+            "empty_content" => "empty content",
+            "empty_output_text" => "empty output text",
+            "empty_output" => "empty output",
+            "invalid_envelope" => "invalid response envelope",
+            "incomplete_response" => "response incomplete",
+            "unsupported_content_type" => "unsupported content type",
+            "connection_failed" => "connection failed",
+            "timeout" => "request timed out"
+          }.fetch(reason.category, reason.category)
+        end
         return "http #{reason.code}" if reason.respond_to?(:code)
 
         reason.class.name
@@ -469,19 +381,11 @@ module Memury
           "request timed out"
         when SocketError, SystemCallError, OpenSSL::SSL::SSLError
           "connection failed"
+        when StructuredResponseClient::Error
+          fallback_reason(error)
         else
           error.message.presence || "request failed"
         end
-      end
-
-      def compatibility_note_for(response)
-        return nil unless response.respond_to?(:code)
-        return nil unless [400, 422].include?(response.code.to_i)
-
-        body = response.body.to_s
-        return "structured outputs rejected" if body.match?(/text\.format|json_schema|structured output|unsupported|additional properties/i)
-
-        "provider rejected request"
       end
 
       def elapsed_ms(start_time)

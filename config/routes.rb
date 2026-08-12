@@ -26,10 +26,22 @@ end
 
 CanvasRails::Application.routes.draw do
   get "memury", to: "memury#index", as: :memury
+  get "memury/learn/:assignment_id", to: "memury#index", as: :memury_learn
+  get "memury/risks", to: "memury#index", as: :memury_risks
+  get "memury/plan", to: "memury#index", as: :memury_plan
+  get "memury/memory", to: "memury#index", as: :memury_memory
   get "memury/state", to: "memury#state", as: :memury_state
   post "memury/sync", to: "memury#sync", as: :memury_sync
   post "memury/reset", to: "memury#reset", as: :memury_reset
   patch "memury/action", to: "memury#action", as: :memury_action
+  post "memury/replan", to: "memury#replan", as: :memury_replan
+  post "memury/events", to: "memury#create_event", as: :memury_events
+  patch "memury/events/:id", to: "memury#update_event", as: :memury_event
+  delete "memury/events/:id", to: "memury#destroy_event"
+  patch "memury/plan_blocks/:id", to: "memury#update_plan_block", as: :memury_plan_block
+  post "memury/focus/:command", to: "memury#focus", as: :memury_focus
+  post "memury/questions", to: "memury#create_question", as: :memury_questions
+  patch "memury/questions/:id", to: "memury#update_question", as: :memury_question
 
   # Test-only routes for Selenium tests with mock LTI tool
   if Rails.env.test?
