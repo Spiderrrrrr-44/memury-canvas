@@ -17,7 +17,7 @@
  */
 
 import doFetchApi from '@canvas/do-fetch-api-effect'
-import type {MemuryContext, MemuryState} from './types'
+import type {LearningGraphState, MemuryContext, MemuryState} from './types'
 
 export async function getState(context?: MemuryContext): Promise<MemuryState> {
   const query = context
@@ -50,6 +50,39 @@ export async function resetState(): Promise<MemuryState> {
 export async function sendAction(body: Record<string, unknown>): Promise<MemuryState> {
   const {json} = await doFetchApi<MemuryState>({path: '/memury/action', method: 'PATCH', body})
   if (!json) throw new Error('Memury action returned no state')
+  return json
+}
+
+export async function getLearningGraph(assignmentId: string): Promise<LearningGraphState> {
+  const {json} = await doFetchApi<LearningGraphState>({
+    path: `/memury/learning_graph?assignment_id=${encodeURIComponent(assignmentId)}`,
+  })
+  if (!json) throw new Error('Memury returned no learning graph')
+  return json
+}
+
+export async function continueLearningGraph({
+  assignmentId,
+  parentNodeId,
+  question,
+  requestId,
+}: {
+  assignmentId: string
+  parentNodeId: string
+  question: string
+  requestId: string
+}): Promise<LearningGraphState> {
+  const {json} = await doFetchApi<LearningGraphState>({
+    path: '/memury/learning_graph/branches',
+    method: 'POST',
+    body: {
+      assignment_id: assignmentId,
+      parent_node_id: parentNodeId,
+      question,
+      request_id: requestId,
+    },
+  })
+  if (!json) throw new Error('Memury returned no updated learning graph')
   return json
 }
 /*

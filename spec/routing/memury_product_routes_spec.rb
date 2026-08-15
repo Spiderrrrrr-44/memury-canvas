@@ -9,6 +9,9 @@ describe "Memury product routes", type: :routing do
     expect(get: "/memury/risks").to route_to("memury#index")
     expect(get: "/memury/plan").to route_to("memury#index")
     expect(get: "/memury/memory").to route_to("memury#index")
+    expect(get: "/memury/learning_graph").to route_to("memury#learning_graph")
+    expect(post: "/memury/learning_graph/branches").to route_to("memury#continue_learning_graph")
+    expect(patch: "/memury/learning_graph/current").to route_to("memury#select_learning_graph_node")
   end
 
   it "routes semester commands without overloading Canvas resources" do

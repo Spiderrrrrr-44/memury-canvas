@@ -12,6 +12,7 @@ import {
   updateQuestion,
 } from "./product_api";
 import type { Assignment, MemuryState } from "./types";
+import { LearningGraph } from "./learning_graph";
 import "./product.css";
 
 type Json = Record<string, unknown>;
@@ -550,6 +551,7 @@ function LearningWorkspace({
   mutate: (fn: () => Promise<ProductState>) => void;
 }) {
   const assignment = resolveAssignment(state.assignments, assignmentId);
+  const [workspaceView, setWorkspaceView] = useState<"evidence" | "graph">("evidence");
   const evidence = (state.semester_memory?.evidence || []).filter(
     (item) =>
       String(item.assignment_id) === String(assignment?.id) ||
@@ -580,7 +582,28 @@ function LearningWorkspace({
           <a href={assignment.source_url}>在 Canvas 中打开 ↗</a>
         )}
       </PageIntro>
-      <div className="memury-learning-layout memury-enter">
+      <div className="memury-workspace-switch" role="tablist" aria-label="学习工作区视图">
+        <button
+          type="button"
+          role="tab"
+          aria-selected={workspaceView === "evidence"}
+          onClick={() => setWorkspaceView("evidence")}
+        >
+          作业 Evidence
+        </button>
+        <button
+          type="button"
+          role="tab"
+          aria-selected={workspaceView === "graph"}
+          onClick={() => setWorkspaceView("graph")}
+        >
+          学习路径
+        </button>
+      </div>
+      {workspaceView === "graph" ? (
+        <LearningGraph assignmentId={String(assignment.id)} assignmentTitle={assignment.title} />
+      ) : (
+      <div className="memury-learning-layout memury-enter" role="tabpanel">
         <section className="memury-evidence-ledger">
           <div className="memury-section-heading">
             <div>
@@ -669,6 +692,7 @@ function LearningWorkspace({
           </div>
         </aside>
       </div>
+      )}
       <OptionalValidation state={state} mutate={mutate} />
     </>
   );

@@ -49,6 +49,34 @@ class MemuryController < ApplicationController
     render json: present_state
   end
 
+  def learning_graph
+    render json: learning_graph_projection
+  end
+
+  def continue_learning_graph
+    Memury::Learning::GraphCommandService.continue!(
+      user: @current_user,
+      assignment_ref: params[:assignment_id],
+      parent_node_id: params[:parent_node_id],
+      question: params[:question],
+      request_id: params[:request_id]
+    )
+    render json: learning_graph_projection
+  rescue Memury::Learning::GraphCommandService::InvalidCommand => e
+    render json: { error: e.code }, status: :unprocessable_content
+  end
+
+  def select_learning_graph_node
+    Memury::Learning::GraphCommandService.select!(
+      user: @current_user,
+      assignment_ref: params[:assignment_id],
+      node_id: params[:node_id]
+    )
+    render json: learning_graph_projection
+  rescue Memury::Learning::GraphCommandService::InvalidCommand => e
+    render json: { error: e.code }, status: :unprocessable_content
+  end
+
   def action
     supported_events = %w[
       start_study_block
@@ -675,6 +703,13 @@ class MemuryController < ApplicationController
 
   def focus_params
     params.permit(:course_id, :assignment_id, :plan_block_id).to_h.symbolize_keys
+  end
+
+  def learning_graph_projection
+    Memury::Learning::GraphProjection.call(
+      user: @current_user,
+      assignment_ref: params[:assignment_id]
+    )
   end
 
   def question_params

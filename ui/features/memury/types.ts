@@ -111,6 +111,58 @@ export interface CourseIntelligence {
   study_blocks: StudyBlock[]
 }
 
+export interface LearningGraphEvidenceRef {
+  id: string
+  kind: string
+  verified: boolean
+  observed_at: string
+}
+
+export type LearningGraphVerificationState =
+  | 'exploration'
+  | 'pending'
+  | 'verified'
+  | 'unresolved'
+
+export interface LearningGraphNode {
+  id: string
+  kind:
+    | 'learning_goal'
+    | 'student_question'
+    | 'diagnosis'
+    | 'intervention'
+    | 'verification'
+    | 'transfer_task'
+    | 'verification_result'
+  title: string
+  summary: string
+  created_at: string
+  verification_state: LearningGraphVerificationState
+  evidence_refs: LearningGraphEvidenceRef[]
+  relationship: string
+  step_id?: string | null
+}
+
+export interface LearningGraphEdge {
+  id: string
+  source_node_id: string
+  target_node_id: string
+  relation: 'sequence' | 'branch' | 'diagnoses'
+  label: string
+}
+
+export interface LearningGraphState {
+  learning_session_id: string | null
+  course_id: string | null
+  assignment_id: string | null
+  current_node_id: string | null
+  nodes: LearningGraphNode[]
+  edges: LearningGraphEdge[]
+  verified_evidence_id: string | null
+  created_at: string | null
+  writable: boolean
+}
+
 export interface MemuryState {
   demo_mode: boolean
   phase: 'overview' | 'recall' | 'verify' | 'repair' | 'transfer' | 'complete'

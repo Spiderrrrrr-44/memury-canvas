@@ -56,6 +56,7 @@ module Memury
           payloads = evidence_payloads(state:, event:, params:)
           step_payload = step_input(event:, params:)
           step_key = fingerprint(session.id, event, step_payload)
+          step_payload = step_payload.merge(parent_link_for(session))
           step = session.steps.find_or_create_by!(idempotency_key: step_key) do |candidate|
             candidate.kind = EVENT_KINDS.fetch(event, "event")
             candidate.sequence = session.steps.maximum(:sequence).to_i + 1
@@ -89,7 +90,10 @@ module Memury
           # inside the same transaction, rather than a descriptive string.
           if event == "answer_transfer"
             trigger = evidence_records.find { |evidence| evidence.kind == "transfer_validation" }
-            bind_trigger_evidence!(state:, step:, evidence: trigger) if trigger
+            if trigger
+              bind_trigger_evidence!(state:, step:, evidence: trigger)
+              Memury::Learning::AcademicEvidenceProjector.call(user:, session:, evidence: trigger)
+            end
           end
 
           if state.dig("learning_session", "completed_at").present? || state["phase"] == "complete"
@@ -99,7 +103,11 @@ module Memury
             session.duration_seconds ||= [(session.ended_at - session.started_at).to_i, 0].max
           end
           session.summary = state.dig("concept", "reason").presence || session.summary
-          session.metadata = session.metadata.to_h.merge("last_event" => event, "phase" => state["phase"])
+          session.metadata = session.metadata.to_h.merge(
+            "last_event" => event,
+            "phase" => state["phase"],
+            "current_learning_graph_node_id" => "step-#{step.id}"
+          )
           session.save!
           session
         rescue ActiveRecord::RecordNotUnique
@@ -164,7 +172,7 @@ module Memury
             if state["diagnostic"].is_a?(Hash)
               payloads << { kind: "diagnosis",
                             source: state.dig("diagnostic", "source").presence || "rule_fallback",
-                            verified: true,
+                            verified: false,
                             confidence: state.dig("diagnostic", "confidence"),
                             payload: state.fetch("diagnostic").slice(
                               "diagnosis_summary", "answer_judgment", "misconception_type", "evidence", "confidence"
@@ -179,7 +187,7 @@ module Memury
           when "request_hint"
             [{ kind: "hint",
                source: "Memury tutor",
-               verified: true,
+               verified: false,
                payload: { "level" => session["hint_level"], "hint" => session["active_hint"] }.compact }]
           when "start_transfer"
             [{ kind: "practice_validation",
@@ -241,6 +249,16 @@ module Memury
             "duration_minutes",
             "starts_at"
           ).merge("event" => event)
+        end
+
+        def parent_link_for(session)
+          node_id = session.metadata.to_h["current_learning_graph_node_id"].to_s
+          parent_step = if (match = node_id.match(/\Astep-(\d+)\z/))
+                          session.steps.find_by(id: match[1])
+                        elsif (match = node_id.match(/\Aevidence-(\d+)\z/))
+                          session.evidences.find_by(id: match[1])&.step
+                        end
+          parent_step ? { "parent_step_id" => parent_step.id } : {}
         end
 
         def param_value(params, key)

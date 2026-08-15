@@ -1123,6 +1123,319 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
   text-align: center;
 }
 
+.memury-workspace-switch {
+  background: rgba(255, 255, 255, 0.64);
+  border: 1px solid var(--memory-line);
+  border-radius: 999px;
+  display: inline-flex;
+  gap: 0.25rem;
+  margin: 0 auto 1.25rem;
+  padding: 0.25rem;
+}
+.memury-workspace-switch button {
+  background: transparent;
+  border: 0;
+  border-radius: 999px;
+  color: var(--memory-ink-soft);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 650;
+  padding: 0.58rem 0.9rem;
+}
+.memury-workspace-switch button[aria-selected="true"] {
+  background: var(--memory-ink);
+  color: white;
+  box-shadow: 0 6px 18px rgba(16, 35, 63, 0.18);
+}
+.memury-workspace-switch button:focus-visible,
+.memury-graph-node:focus-visible,
+.memury-graph-detail button:focus-visible,
+.memury-graph-empty button:focus-visible {
+  outline: 3px solid var(--memory-blue);
+  outline-offset: 3px;
+}
+.memury-learning-graph,
+.memury-graph-empty,
+.memury-graph-loading {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--memory-line);
+  border-radius: 1.75rem;
+  box-shadow: 0 24px 70px rgba(39, 76, 126, 0.1);
+  margin-bottom: 1.5rem;
+  padding: clamp(1rem, 2.5vw, 2rem);
+}
+.memury-graph-header {
+  align-items: flex-end;
+  display: flex;
+  gap: 1.5rem;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.memury-graph-header h2,
+.memury-graph-empty h2 {
+  font-size: clamp(1.65rem, 3vw, 2.5rem);
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+  margin: 0.25rem 0 0.55rem;
+}
+.memury-graph-header p,
+.memury-graph-empty p {
+  color: var(--memory-ink-soft);
+  margin: 0;
+  max-width: 65ch;
+}
+.memury-graph-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+  justify-content: flex-end;
+}
+.memury-graph-legend span,
+.memury-graph-state {
+  align-items: center;
+  border: 1px solid var(--memory-line);
+  border-radius: 999px;
+  color: var(--memory-ink-soft);
+  display: inline-flex;
+  font-size: 0.68rem;
+  font-weight: 700;
+  gap: 0.35rem;
+  padding: 0.32rem 0.55rem;
+}
+.memury-graph-legend span::before,
+.memury-graph-state::before {
+  background: currentColor;
+  border-radius: 50%;
+  content: "";
+  height: 0.48rem;
+  width: 0.48rem;
+}
+.memury-graph-legend .is-verified,
+.memury-graph-state.is-verified {
+  color: #166a50;
+}
+.memury-graph-legend .is-pending,
+.memury-graph-state.is-pending {
+  color: #8a5b10;
+}
+.memury-graph-legend .is-unresolved,
+.memury-graph-state.is-unresolved {
+  color: #a43c39;
+}
+.memury-graph-layout {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: minmax(0, 1fr) minmax(250px, 320px);
+}
+.memury-graph-scroll {
+  background: linear-gradient(
+      rgba(255, 255, 255, 0.68),
+      rgba(255, 255, 255, 0.68)
+    ),
+    radial-gradient(
+      circle at 1px 1px,
+      rgba(63, 113, 232, 0.16) 1px,
+      transparent 0
+    );
+  background-size: auto, 22px 22px;
+  border: 1px solid var(--memory-line);
+  border-radius: 1.25rem;
+  min-height: 320px;
+  overflow: auto;
+  overscroll-behavior: contain;
+}
+.memury-graph-canvas {
+  position: relative;
+}
+.memury-graph-edges {
+  inset: 0;
+  overflow: visible;
+  pointer-events: none;
+  position: absolute;
+}
+.memury-graph-edges path {
+  fill: none;
+  stroke: rgba(74, 91, 118, 0.46);
+  stroke-width: 2;
+}
+.memury-graph-edges path.is-branch {
+  stroke: var(--memory-blue);
+  stroke-dasharray: 6 5;
+}
+.memury-graph-edges marker path {
+  fill: rgba(74, 91, 118, 0.62);
+}
+.memury-graph-node {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid var(--memory-line);
+  border-radius: 1rem;
+  box-shadow: 0 12px 28px rgba(30, 55, 90, 0.09);
+  color: var(--memory-ink);
+  cursor: pointer;
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  height: 104px;
+  padding: 0.85rem;
+  position: absolute;
+  text-align: left;
+  transition: border-color 160ms ease, box-shadow 160ms ease, opacity 160ms ease,
+    transform 160ms ease;
+  width: 216px;
+}
+.memury-graph-node > span,
+.memury-graph-node > small {
+  color: var(--memory-ink-soft);
+  font-size: 0.66rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+.memury-graph-node > strong {
+  display: -webkit-box;
+  font-size: 0.88rem;
+  line-height: 1.3;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.memury-graph-node.is-current {
+  border-color: var(--memory-blue);
+  box-shadow: 0 0 0 3px rgba(63, 113, 232, 0.13),
+    0 16px 36px rgba(43, 78, 125, 0.18);
+}
+.memury-graph-node.is-current::after {
+  background: var(--memory-blue);
+  border-radius: 999px;
+  color: white;
+  content: "当前";
+  font-size: 0.58rem;
+  font-weight: 750;
+  padding: 0.18rem 0.38rem;
+  position: absolute;
+  right: 0.55rem;
+  top: 0.5rem;
+}
+.memury-graph-node.is-selected {
+  transform: translateY(-3px);
+}
+.memury-graph-node.is-off-path {
+  opacity: 0.48;
+}
+.memury-graph-node.is-verified {
+  border-left: 4px solid #2d8a69;
+}
+.memury-graph-node.is-pending {
+  border-left: 4px dashed #b17a22;
+}
+.memury-graph-node.is-unresolved {
+  border-left: 4px double #ba4b47;
+}
+.memury-graph-detail {
+  background: rgba(250, 252, 255, 0.94);
+  border: 1px solid var(--memory-line);
+  border-radius: 1.25rem;
+  min-width: 0;
+  padding: 1.1rem;
+}
+.memury-graph-detail h3 {
+  font-size: 1.2rem;
+  letter-spacing: -0.02em;
+  margin: 0.8rem 0;
+}
+.memury-graph-detail > p {
+  color: var(--memory-ink-soft);
+  line-height: 1.6;
+}
+.memury-graph-detail dl {
+  display: grid;
+  gap: 0.5rem;
+  margin: 0.9rem 0;
+}
+.memury-graph-detail dl div {
+  border-bottom: 1px solid var(--memory-line);
+  display: grid;
+  gap: 0.7rem;
+  grid-template-columns: 80px 1fr;
+  padding-bottom: 0.5rem;
+}
+.memury-graph-detail dt {
+  color: var(--memory-ink-soft);
+  font-size: 0.7rem;
+}
+.memury-graph-detail dd {
+  font-size: 0.76rem;
+  margin: 0;
+  overflow-wrap: anywhere;
+}
+.memury-graph-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-top: 1rem;
+}
+.memury-graph-actions button,
+.memury-graph-branch-form button,
+.memury-graph-empty button {
+  background: transparent;
+  border: 1px solid var(--memory-line);
+  border-radius: 999px;
+  color: var(--memory-ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.74rem;
+  font-weight: 700;
+  padding: 0.58rem 0.8rem;
+}
+.memury-graph-actions button.is-primary,
+.memury-graph-branch-form button.is-primary {
+  background: var(--memory-ink);
+  color: white;
+}
+.memury-graph-actions button:disabled,
+.memury-graph-branch-form button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+.memury-graph-branch-form {
+  background: rgba(232, 239, 252, 0.56);
+  border-radius: 0.9rem;
+  display: grid;
+  gap: 0.55rem;
+  margin-top: 0.85rem;
+  padding: 0.75rem;
+}
+.memury-graph-branch-form label {
+  color: var(--memory-ink-soft);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+.memury-graph-branch-form textarea {
+  background: white;
+  border: 1px solid var(--memory-line);
+  border-radius: 0.7rem;
+  color: var(--memory-ink);
+  font: inherit;
+  min-height: 5.5rem;
+  padding: 0.7rem;
+  resize: vertical;
+}
+.memury-graph-memory-note {
+  border-top: 1px solid var(--memory-line);
+  font-size: 0.7rem;
+  margin-top: 1rem;
+  padding-top: 0.8rem;
+}
+.memury-graph-error {
+  color: #a43c39;
+}
+.memury-graph-empty {
+  text-align: left;
+}
+.memury-graph-empty button {
+  margin-top: 1rem;
+}
+
 @media (hover: hover) and (pointer: fine) {
   .memury-river-block:hover {
     box-shadow: 0 18px 40px rgba(43, 78, 125, 0.15);
@@ -1131,6 +1444,10 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
   .memury-product-nav nav a:hover {
     background: rgba(255, 255, 255, 0.65);
     color: var(--memory-ink);
+  }
+  .memury-graph-node:hover {
+    box-shadow: 0 18px 40px rgba(43, 78, 125, 0.16);
+    transform: translateY(-3px);
   }
 }
 @media (max-width: 1000px) {
@@ -1170,6 +1487,12 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
   }
   .memury-memory-grid {
     grid-template-columns: 1fr;
+  }
+  .memury-graph-layout {
+    grid-template-columns: 1fr;
+  }
+  .memury-graph-detail {
+    min-height: 240px;
   }
   .memury-focus-console,
   .memury-question-log {
@@ -1245,6 +1568,24 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
   .memury-validation-progress {
     flex-direction: row;
   }
+  .memury-graph-header {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+  .memury-graph-legend {
+    justify-content: flex-start;
+  }
+  .memury-graph-scroll {
+    min-height: 280px;
+  }
+  .memury-workspace-switch {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    width: 100%;
+  }
+  .memury-workspace-switch button {
+    min-height: 44px;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .memury-product-shell *,
@@ -1257,6 +1598,9 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
   }
   .memury-enter,
   .memury-risk-detail {
+    transform: none !important;
+  }
+  .memury-graph-node.is-selected {
     transform: none !important;
   }
 }

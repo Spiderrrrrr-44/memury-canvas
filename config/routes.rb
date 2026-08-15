@@ -33,6 +33,9 @@ CanvasRails::Application.routes.draw do
   get "memury/state", to: "memury#state", as: :memury_state
   post "memury/sync", to: "memury#sync", as: :memury_sync
   post "memury/reset", to: "memury#reset", as: :memury_reset
+  get "memury/learning_graph", to: "memury#learning_graph", as: :memury_learning_graph
+  post "memury/learning_graph/branches", to: "memury#continue_learning_graph", as: :memury_learning_graph_branches
+  patch "memury/learning_graph/current", to: "memury#select_learning_graph_node", as: :memury_learning_graph_current
   patch "memury/action", to: "memury#action", as: :memury_action
   post "memury/replan", to: "memury#replan", as: :memury_replan
   post "memury/events", to: "memury#create_event", as: :memury_events
