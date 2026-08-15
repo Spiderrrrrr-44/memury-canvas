@@ -1,6 +1,10 @@
 /* Copyright (C) 2026 - present Instructure, Inc. AGPLv3 */
 import React, { useEffect, useMemo, useState } from "react";
-import { continueLearningGraph, getLearningGraph } from "./api";
+import {
+  continueLearningGraph,
+  getLearningGraph,
+  selectLearningGraphNode,
+} from "./api";
 import type {
   LearningGraphEdge,
   LearningGraphNode,
@@ -158,6 +162,23 @@ export function LearningGraph({
   );
   const selected = graph?.nodes.find((node) => node.id === selectedId) || null;
 
+  const selectNode = async (node: LearningGraphNode) => {
+    setSelectedId(node.id);
+    setBranching(false);
+    if (!graph || node.id === graph.current_node_id || busy) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const next = await selectLearningGraphNode({assignmentId, nodeId: node.id});
+      setGraph(next);
+      setSelectedId(next.current_node_id || node.id);
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : String(reason));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const createBranch = async () => {
     if (!graph || !selected || question.trim().length < 2 || busy) return;
     setBusy(true);
@@ -296,10 +317,14 @@ export function LearningGraph({
                   style={{ left: node.x, top: node.y }}
                   aria-current={isCurrent ? "step" : undefined}
                   aria-pressed={isSelected}
-                  onClick={() => {
-                    setSelectedId(node.id);
-                    setBranching(false);
+                  disabled={busy}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      selectNode(node);
+                    }
                   }}
+                  onClick={() => selectNode(node)}
                 >
                   <span>{kindLabels[node.kind]}</span>
                   <strong>{node.title}</strong>

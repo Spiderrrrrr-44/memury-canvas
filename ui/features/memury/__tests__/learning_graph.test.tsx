@@ -9,6 +9,7 @@ import type { LearningGraphState } from "../types";
 vi.mock("../api", () => ({
   getLearningGraph: vi.fn(),
   continueLearningGraph: vi.fn(),
+  selectLearningGraphNode: vi.fn(),
 }));
 
 const graph: LearningGraphState = {
@@ -89,6 +90,7 @@ describe("LearningGraph", () => {
   beforeEach(() => {
     vi.mocked(api.getLearningGraph).mockReset();
     vi.mocked(api.continueLearningGraph).mockReset();
+    vi.mocked(api.selectLearningGraphNode).mockReset();
   });
 
   it("lays out a real directed path without inventing nodes", () => {
@@ -100,6 +102,10 @@ describe("LearningGraph", () => {
 
   it("renders current, unresolved, and verified states and inspects an old node", async () => {
     vi.mocked(api.getLearningGraph).mockResolvedValue(graph);
+    vi.mocked(api.selectLearningGraphNode).mockResolvedValue({
+      ...graph,
+      current_node_id: "step-2",
+    });
     render(
       <LearningGraph
         assignmentId="assignment-1"
@@ -116,8 +122,15 @@ describe("LearningGraph", () => {
     expect(screen.getAllByText("未解决误区").length).toBeGreaterThan(0);
     expect(screen.getAllByText("已验证 Evidence").length).toBeGreaterThan(0);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /Concept boundary pending/ })
+    fireEvent.keyDown(
+      screen.getByRole("button", { name: /Concept boundary pending/ }),
+      { key: "Enter" }
+    );
+    await waitFor(() =>
+      expect(api.selectLearningGraphNode).toHaveBeenCalledWith({
+        assignmentId: "assignment-1",
+        nodeId: "step-2",
+      })
     );
     expect(
       screen.getByText("This is a candidate diagnosis, not verified mastery.")
@@ -155,6 +168,10 @@ describe("LearningGraph", () => {
       ],
     };
     vi.mocked(api.getLearningGraph).mockResolvedValue(graph);
+    vi.mocked(api.selectLearningGraphNode).mockResolvedValue({
+      ...graph,
+      current_node_id: "step-2",
+    });
     vi.mocked(api.continueLearningGraph).mockResolvedValue(branched);
     render(
       <LearningGraph
@@ -165,6 +182,9 @@ describe("LearningGraph", () => {
 
     fireEvent.click(
       await screen.findByRole("button", { name: /Concept boundary pending/ })
+    );
+    await waitFor(() =>
+      expect(api.selectLearningGraphNode).toHaveBeenCalled()
     );
     fireEvent.click(screen.getByRole("button", { name: "从这里继续" }));
     fireEvent.change(screen.getByLabelText("新分支问题"), {

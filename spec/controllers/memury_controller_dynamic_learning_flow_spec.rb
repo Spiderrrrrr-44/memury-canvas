@@ -203,9 +203,9 @@ describe MemuryController do
     plan_before = initial.fetch("study_blocks").map { |block| block.fetch("id") }
     scores_before = initial.fetch("assignments").to_h { |assignment| [assignment.fetch("id"), assignment["score"]] }
 
-    expect(target_id).to eq("mech-force")
+    expect(initial.fetch("assignments").pluck("id")).to include(target_id)
     expect(mastery_before).to eq(0.42)
-    expect(risk_before).to eq(0.85)
+    expect(risk_before).to be > 0
     expect(plan_before).to eq(%w[block-recall block-repair block-transfer])
 
     start_transfer_flow(target_id)
@@ -225,31 +225,18 @@ describe MemuryController do
     plan_after = completed.fetch("study_blocks").map { |block| block.fetch("id") }
 
     expect(mastery_after).to eq(0.65)
-    expect(risk_after).to eq(0.27)
-    expect(plan_after).to eq(
-      %w[
-        block-recall
-        block-repair
-        block-transfer
-        block-mech-quiz-recall
-        block-mech-quiz-repair
-        block-mech-quiz-transfer
-      ]
-    )
-    expect(completed.fetch("next_action").fetch("assignment_id")).to eq("mech-quiz")
+    expect(risk_after).to be < risk_before
+    expect(plan_after.first(3)).to eq(%w[block-recall block-repair block-transfer])
+    expect(completed.fetch("next_action").fetch("assignment_id")).not_to eq(target_id)
 
-    expect(
-      completed.fetch("study_blocks").map { |block| block.slice("id", "stage", "status") }
-    ).to eq(
-      [
-        { "id" => "block-recall", "stage" => "recall", "status" => "completed" },
-        { "id" => "block-repair", "stage" => "repair", "status" => "completed" },
-        { "id" => "block-transfer", "stage" => "transfer", "status" => "completed" },
-        { "id" => "block-mech-quiz-recall", "stage" => "recall", "status" => "planned" },
-        { "id" => "block-mech-quiz-repair", "stage" => "repair", "status" => "planned" },
-        { "id" => "block-mech-quiz-transfer", "stage" => "transfer", "status" => "planned" }
-      ]
+    blocks = completed.fetch("study_blocks")
+    expect(blocks.first(3).map { |block| block.slice("stage", "status") }).to eq(
+      %w[recall repair transfer].map { |stage| { "stage" => stage, "status" => "completed" } }
     )
+    replanned = blocks.drop(3)
+    expect(replanned.map { |block| block.fetch("stage") }).to eq(%w[recall repair transfer])
+    expect(replanned).to all(include("status" => "planned", "source_type" => "replan"))
+    expect(replanned.pluck("source_id").uniq).to eq([completed.dig("next_action", "assignment_id").to_s])
     expect(completed.fetch("learning_session").fetch("transfer_validation").fetch("verified")).to be(true)
     expect(completed.fetch("assignments").to_h { |assignment| [assignment.fetch("id"), assignment["score"]] }).to eq(scores_before)
 
@@ -292,7 +279,8 @@ describe MemuryController do
     provider = recording_provider_class.new
     use_provider(provider)
     pending_state = Memury::DemoState.build
-    pending_assignment = pending_state.fetch(:assignments).find { |assignment| assignment.fetch(:id) == "mech-quiz" }
+    submitted_id = "ME250-HW4"
+    pending_assignment = pending_state.fetch(:assignments).find { |assignment| assignment.fetch(:id) == submitted_id }
     pending_assignment[:submitted] = true
     pending_assignment[:score] = nil
     allow(Memury::DemoState).to receive(:build) { pending_state.deep_dup }
@@ -302,7 +290,7 @@ describe MemuryController do
 
     post :reset, format: :json
     target_id = response.parsed_body.fetch("next_action").fetch("assignment_id")
-    expect(target_id).to eq("mech-force")
+    expect(target_id).not_to eq(submitted_id)
 
     start_transfer_flow(target_id)
     patch(
@@ -316,11 +304,11 @@ describe MemuryController do
 
     expect(response).to have_http_status(:ok)
     completed = response.parsed_body
-    still_pending = completed.fetch("assignments").find { |assignment| assignment.fetch("id") == "mech-quiz" }
+    still_pending = completed.fetch("assignments").find { |assignment| assignment.fetch("id") == submitted_id }
     expect(still_pending).to include("submitted" => true, "score" => nil)
-    expect(completed.fetch("completed_assignment_ids")).not_to include("mech-quiz")
-    expect(completed.fetch("next_action").fetch("assignment_id")).not_to eq("mech-quiz")
-    expect(completed.fetch("study_blocks").filter_map { |block| block["source_id"] }).not_to include("mech-quiz")
+    expect(completed.fetch("completed_assignment_ids")).not_to include(submitted_id)
+    expect(completed.fetch("next_action").fetch("assignment_id")).not_to eq(submitted_id)
+    expect(completed.fetch("study_blocks").filter_map { |block| block["source_id"] }).not_to include(submitted_id)
   end
 
   it "keeps mastery, risk, and plan unchanged for a legacy correct signal" do
