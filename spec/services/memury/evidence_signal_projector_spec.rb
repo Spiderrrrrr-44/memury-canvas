@@ -28,4 +28,25 @@ describe Memury::EvidenceSignalProjector do
 
     expect(described_class.call(user:, state:)).to eq(state)
   end
+
+
+  it "projects course-scoped evidence only onto assignments from that course" do
+    course = course_factory
+    other_course = course_factory
+    scoped_state = state.merge("assignments" => [
+      { "id" => "a1", "course_id" => course.id },
+      { "id" => "a2", "course_id" => other_course.id }
+    ])
+    Memury::AcademicEvidence.create!(
+      user:, course:, kind: "item_error", source_kind: "canvas", source_ref: "course-item-1",
+      title: "Course item", summary: "Observed error", verified: true,
+      confidence: 1.0, observed_at: Time.zone.now
+    )
+
+    result = described_class.call(user:, state: scoped_state)
+
+    expect(result["assignments"].first["evidence_mastery"]).to be_present
+    expect(result["assignments"].second).not_to have_key("evidence_mastery")
+    expect(result["concept"]).to eq(state["concept"])
+  end
 end

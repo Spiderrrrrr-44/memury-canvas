@@ -27,4 +27,29 @@ describe Memury::Scheduler do
     expect(result).to all(satisfy { |block| block.starts_at >= now.change(hour: 12) })
     expect(Memury::PlanBlock.exists?(locked.id)).to be true
   end
+
+  it "uses the remaining time before an urgent deadline instead of silently returning no blocks" do
+    urgent = assignment.merge("estimated_minutes" => 30, "due_at" => (now + 2.hours).iso8601)
+
+    result = described_class.call(user:, assignments: [urgent], now:)
+
+    expect(result.length).to eq(1)
+    expect(result.first.ends_at).to be <= now + 2.hours
+    expect(result.unscheduled).to be_empty
+  end
+
+  it "reports an explicit reason when no legal slot exists" do
+    impossible = assignment.merge("estimated_minutes" => 30, "due_at" => (now + 10.minutes).iso8601)
+
+    result = described_class.call(user:, assignments: [impossible], now:)
+
+    expect(result.blocks).to be_empty
+    expect(result.unscheduled.first).to include("assignment_id" => "demo-task")
+  end
+
+  it "replaces unlocked planned blocks instead of creating duplicates" do
+    2.times { described_class.call(user:, assignments: [assignment], now:) }
+
+    expect(Memury::PlanBlock.where(user:, status: "planned").count).to eq(2)
+  end
 end

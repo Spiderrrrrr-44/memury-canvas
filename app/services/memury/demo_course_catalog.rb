@@ -80,8 +80,8 @@ module Memury
           starts_at: (now.beginning_of_day + (index + 1).days + 9.hours).iso8601,
           location: course[:room], course_id: course[:id] }
       end + [
-        { id: "SIS-ME250-Q2", title: "ME 250 Quiz 2", starts_at: (now + 43.hours).iso8601, location: "DCL 1320", exam: true },
-        { id: "SIS-PHYS212-REVIEW", title: "PHYS 212 Exam Review", starts_at: (now + 4.days).iso8601, location: "Loomis 141", exam: true }
+        { id: "SIS-ME250-Q2", title: "ME 250 Quiz 2", starts_at: (now + 43.hours).iso8601, location: "DCL 1320", exam: true, course_id: "ME250" },
+        { id: "SIS-PHYS212-REVIEW", title: "PHYS 212 Exam Review", starts_at: (now + 4.days).iso8601, location: "Loomis 141", exam: true, course_id: "PHYS212" }
       ]
     end
 
@@ -90,7 +90,7 @@ module Memury
         start = now.beginning_of_day + (index + 1).days + [10, 9, 13, 13, 15, 11][index].hours
         { id: "CAL-0#{index + 1}", title: "#{course[:id]} · #{course[:schedule]}", starts_at: start,
           ends_at: start + [50, 80, 50, 80, 80, 80][index].minutes, source_kind: "course",
-          availability: "busy", recurrence_rule: "FREQ=WEEKLY", locked: true, course_id: course[:id] }
+          availability: "busy", recurrence_rule: nil, locked: true, course_id: course[:id] }
       end
       course_events + [
         calendar("CAL-07", "健身", now.change(hour: 19), 120, "busy"),

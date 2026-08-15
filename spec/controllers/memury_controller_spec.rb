@@ -376,4 +376,20 @@ describe MemuryController do
     expect(recursive_key_paths(course_state, "provider_response")).to be_empty
     expect(recursive_key_paths(course_state, "authorization")).to be_empty
   end
+
+  it "preserves the stable demo assignment id across repeated Canvas syncs" do
+    catalog_item = Memury::DemoCourseCatalog.assignments.find { |item| item[:id] == "ME250-HW4" }
+    official = {
+      "id" => "55",
+      "title" => catalog_item.fetch(:title),
+      "source_platform" => "Canvas",
+      "source_object_id" => "55",
+      "official_or_inferred" => "Official"
+    }
+
+    first_sync = controller.send(:merge_assignments, [catalog_item.stringify_keys], [official])
+    second_sync = controller.send(:merge_assignments, first_sync, [official])
+
+    expect(second_sync.first).to include("id" => "55", "demo_assignment_id" => "ME250-HW4")
+  end
 end

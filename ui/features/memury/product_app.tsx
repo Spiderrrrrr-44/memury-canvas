@@ -16,6 +16,17 @@ import "./product.css";
 
 type Json = Record<string, unknown>;
 type ProductState = MemuryState & {
+  time_zone?: string;
+  planning_status?: {
+    status: "planned" | "no_available_time";
+    generated_count: number;
+    unscheduled: Array<{
+      assignment_id: string;
+      title: string;
+      reason: string;
+    }>;
+    updated_at: string;
+  };
   demo_course_catalog?: Array<{
     id: string;
     name: string;
@@ -54,18 +65,57 @@ type ProductState = MemuryState & {
   };
 };
 
-const fmt = (value?: unknown, options?: Intl.DateTimeFormatOptions) =>
+const fmt = (
+  value?: unknown,
+  options?: Intl.DateTimeFormatOptions,
+  timeZone?: string
+) =>
   value
     ? new Intl.DateTimeFormat(
         "zh-CN",
-        options || {
-          month: "short",
-          day: "numeric",
-          hour: "2-digit",
-          minute: "2-digit",
+        {
+          ...(options || {
+            month: "short",
+            day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+          ...(timeZone ? { timeZone } : {}),
         }
       ).format(new Date(String(value)))
     : "未安排";
+
+const zonedParts = (value: unknown, timeZone?: string) => {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+    hour: "2-digit",
+    hourCycle: "h23",
+    ...(timeZone ? { timeZone } : {}),
+  }).formatToParts(new Date(String(value)));
+  return Object.fromEntries(parts.map((part) => [part.type, part.value]));
+};
+
+export const zonedDateKey = (value: unknown, timeZone?: string) => {
+  const parts = zonedParts(value, timeZone);
+  return `${parts.year}-${parts.month}-${parts.day}`;
+};
+
+export const zonedHour = (value: unknown, timeZone?: string) =>
+  Number(zonedParts(value, timeZone).hour);
+
+const addCalendarDays = (dateKey: string, amount: number) => {
+  const date = new Date(`${dateKey}T12:00:00Z`);
+  date.setUTCDate(date.getUTCDate() + amount);
+  return date.toISOString().slice(0, 10);
+};
+
+const wallTimeAfter = (dateKey: string, hour: number, duration: number) => {
+  const date = new Date(`${dateKey}T${String(hour).padStart(2, "0")}:00:00Z`);
+  date.setTime(date.getTime() + duration);
+  return date.toISOString().slice(0, 16);
+};
 const percent = (value?: unknown) => `${Math.round(Number(value || 0) * 100)}%`;
 const minutes = (seconds?: unknown) =>
   `${Math.round(Number(seconds || 0) / 60)} 分钟`;
@@ -83,6 +133,23 @@ export function currentRoute(pathname = window.location.pathname) {
   if (path === "/memury/plan") return { name: "plan" };
   if (path === "/memury/memory") return { name: "memory" };
   return { name: "home" };
+}
+
+const LEGACY_ASSIGNMENT_ALIASES: Record<string, string> = {
+  "mech-force": "ME250-HW4",
+};
+
+export function resolveAssignment(
+  assignments: Assignment[],
+  assignmentId?: string
+) {
+  const resolvedId =
+    LEGACY_ASSIGNMENT_ALIASES[assignmentId || ""] || assignmentId;
+  return assignments.find((item) => {
+    const demoId = (item as Assignment & { demo_assignment_id?: string })
+      .demo_assignment_id;
+    return String(item.id) === resolvedId || demoId === resolvedId;
+  });
 }
 
 function Shell({
@@ -129,7 +196,7 @@ function Shell({
         <span>·</span>
         <span>{state.academic_snapshot?.course_count || 0} 门课程</span>
         <span>·</span>
-        <span>上次同步 {fmt(state.last_synced_at)}</span>
+          <span>上次同步 {fmt(state.last_synced_at, undefined, state.time_zone)}</span>
       </div>
       {children}
       <footer>Memury 只读取学习证据并提供安排，不修改 Canvas 正式成绩。</footer>
@@ -365,7 +432,7 @@ function Home({ state }: { state: ProductState }) {
               style={{ "--order": index } as React.CSSProperties}
               href="/memury/plan"
             >
-              <time>{fmt(block.starts_at)}</time>
+              <time>{fmt(block.starts_at, undefined, state.time_zone)}</time>
               <strong>{String(block.title)}</strong>
               <small>{String(block.reason)}</small>
             </a>
@@ -482,12 +549,10 @@ function LearningWorkspace({
   assignmentId?: string;
   mutate: (fn: () => Promise<ProductState>) => void;
 }) {
-  const assignment = state.assignments.find(
-    (item) => String(item.id) === assignmentId
-  );
+  const assignment = resolveAssignment(state.assignments, assignmentId);
   const evidence = (state.semester_memory?.evidence || []).filter(
     (item) =>
-      String(item.assignment_id) === assignmentId ||
+      String(item.assignment_id) === String(assignment?.id) ||
       String(item.course_id) === String(assignment?.course_id)
   );
   const verified = evidence.filter((item) => item.verified);
@@ -508,7 +573,7 @@ function LearningWorkspace({
         title={assignment.title}
         summary={`${assignment.course_name} · ${
           assignment.submitted ? "已提交" : "未提交"
-        } · 截止 ${fmt(assignment.due_at)}`}
+          } · 截止 ${fmt(assignment.due_at, undefined, state.time_zone)}`}
       >
         <Provenance kind={assignment.official_or_inferred} />
         {assignment.source_url && (
@@ -667,7 +732,7 @@ function Risks({ state }: { state: ProductState }) {
                 <dl>
                   <div>
                     <dt>截止</dt>
-                    <dd>{fmt(risk.due_at || risk.starts_at)}</dd>
+                    <dd>{fmt(risk.due_at || risk.starts_at, undefined, state.time_zone)}</dd>
                   </div>
                   <div>
                     <dt>预计用时</dt>
@@ -703,27 +768,28 @@ function EventForm({
   mutate: (fn: () => Promise<ProductState>) => void;
 }) {
   const start = useMemo(() => {
-    const d = new Date();
-    d.setHours(19, 0, 0, 0);
-    return inputTime(d);
-  }, []);
+    return `${state.today?.date || inputTime(new Date()).slice(0, 10)}T19:00`;
+  }, [state.today?.date]);
   const end = useMemo(() => {
-    const d = new Date();
-    d.setHours(21, 0, 0, 0);
-    return inputTime(d);
-  }, []);
+    return `${state.today?.date || inputTime(new Date()).slice(0, 10)}T21:00`;
+  }, [state.today?.date]);
   const [form, setForm] = useState({
-    title: "健身",
+    title: "",
     starts_at: start,
     ends_at: end,
     availability: "busy",
-    recurrence_rule: "",
   });
+  const [validationError, setValidationError] = useState<string | null>(null);
   return (
     <form
       className="memury-event-form"
       onSubmit={(event) => {
         event.preventDefault();
+        if (new Date(form.ends_at) <= new Date(form.starts_at)) {
+          setValidationError("结束时间必须晚于开始时间");
+          return;
+        }
+        setValidationError(null);
         mutate(() => createCalendarEvent(form));
       }}
     >
@@ -767,20 +833,9 @@ function EventForm({
             <option value="flexible">可调整</option>
           </select>
         </label>
-        <label>
-          重复规则
-          <select
-            value={form.recurrence_rule}
-            onChange={(e) =>
-              setForm({ ...form, recurrence_rule: e.target.value })
-            }
-          >
-            <option value="">不重复</option>
-            <option value="FREQ=WEEKLY">每周</option>
-          </select>
-        </label>
       </div>
       <button type="submit">保存并重新规划</button>
+      {validationError && <p role="alert">{validationError}</p>}
       <p>{state.semester_memory?.calendar_events.length || 0} 个日程已持久化</p>
     </form>
   );
@@ -794,15 +849,9 @@ function Plan({
   mutate: (fn: () => Promise<ProductState>) => void;
 }) {
   const memory = state.semester_memory;
-  const days = Array.from({ length: 7 }, (_, index) => {
-    const d = new Date();
-    d.setDate(d.getDate() + index);
-    d.setHours(0, 0, 0, 0);
-    return d;
-  });
-  const move = (id: string, day: Date, hour: number) => {
-    const starts = new Date(day);
-    starts.setHours(hour, 0, 0, 0);
+  const firstDate = state.today?.date || zonedDateKey(new Date(), state.time_zone);
+  const days = Array.from({ length: 7 }, (_, index) => addCalendarDays(firstDate, index));
+  const move = (id: string, day: string, hour: number) => {
     const block = memory?.plan_blocks.find((item) => String(item.id) === id);
     const duration = block
       ? new Date(String(block.ends_at)).getTime() -
@@ -810,8 +859,8 @@ function Plan({
       : 30 * 60_000;
     mutate(() =>
       updatePlanBlock(id, {
-        starts_at: starts.toISOString(),
-        ends_at: new Date(starts.getTime() + duration).toISOString(),
+        starts_at: `${day}T${String(hour).padStart(2, "0")}:00`,
+        ends_at: wallTimeAfter(day, hour, duration),
         locked: true,
       })
     );
@@ -829,6 +878,13 @@ function Plan({
         >
           根据最新约束重新规划
         </button>
+        {state.planning_status && (
+          <p role="status">
+            {state.planning_status.status === "planned"
+              ? `已生成 ${state.planning_status.generated_count} 个学习块`
+              : "截止前没有可用时间，请调整个人占用后重试"}
+          </p>
+        )}
       </PageIntro>
       <div className="memury-plan-layout memury-enter">
         <EventForm state={state} mutate={mutate} />
@@ -836,10 +892,10 @@ function Plan({
           <div className="memury-calendar-head">
             <span />
             {days.map((day) => (
-              <div key={day.toISOString()}>
-                <strong>{fmt(day, { weekday: "short" })}</strong>
+              <div key={day}>
+                <strong>{fmt(`${day}T12:00:00Z`, { weekday: "short" }, "UTC")}</strong>
                 <span>
-                  {day.getMonth() + 1}/{day.getDate()}
+                  {Number(day.slice(5, 7))}/{Number(day.slice(8, 10))}
                 </span>
               </div>
             ))}
@@ -851,7 +907,7 @@ function Plan({
                 {days.map((day) => (
                   <div
                     className="memury-time-cell"
-                    key={`${day.toISOString()}-${hour}`}
+                    key={`${day}-${hour}`}
                     onDragOver={(e) => e.preventDefault()}
                     onDrop={(e) =>
                       move(
@@ -864,9 +920,8 @@ function Plan({
                     {(memory?.calendar_events || [])
                       .filter(
                         (item) =>
-                          new Date(String(item.starts_at)).toDateString() ===
-                            day.toDateString() &&
-                          new Date(String(item.starts_at)).getHours() === hour
+                          zonedDateKey(item.starts_at, state.time_zone) === day &&
+                          zonedHour(item.starts_at, state.time_zone) === hour
                       )
                       .map((item) => (
                         <article
@@ -879,41 +934,50 @@ function Plan({
                               ? "不可占用"
                               : "可调整"}
                           </small>
-                          <button
-                            aria-label={`将 ${String(item.title)} 延后一小时`}
-                            onClick={() => {
-                              const startsAt = new Date(String(item.starts_at));
-                              const endsAt = new Date(String(item.ends_at));
-                              mutate(() =>
-                                updateCalendarEvent(String(item.id), {
-                                  starts_at: new Date(
-                                    startsAt.getTime() + 3_600_000
-                                  ).toISOString(),
-                                  ends_at: new Date(
-                                    endsAt.getTime() + 3_600_000
-                                  ).toISOString(),
-                                })
-                              );
-                            }}
-                          >
-                            +1h
-                          </button>
-                          <button
-                            aria-label={`删除 ${String(item.title)}`}
-                            onClick={() =>
-                              mutate(() => deleteCalendarEvent(String(item.id)))
-                            }
-                          >
-                            ×
-                          </button>
+                          {String(item.source_kind) === "personal" && (
+                            <>
+                              <button
+                                aria-label={`将 ${String(
+                                  item.title
+                                )} 延后一小时`}
+                                onClick={() => {
+                                  const startsAt = new Date(
+                                    String(item.starts_at)
+                                  );
+                                  const endsAt = new Date(String(item.ends_at));
+                                  mutate(() =>
+                                    updateCalendarEvent(String(item.id), {
+                                      starts_at: new Date(
+                                        startsAt.getTime() + 3_600_000
+                                      ).toISOString(),
+                                      ends_at: new Date(
+                                        endsAt.getTime() + 3_600_000
+                                      ).toISOString(),
+                                    })
+                                  );
+                                }}
+                              >
+                                +1h
+                              </button>
+                              <button
+                                aria-label={`删除 ${String(item.title)}`}
+                                onClick={() =>
+                                  mutate(() =>
+                                    deleteCalendarEvent(String(item.id))
+                                  )
+                                }
+                              >
+                                ×
+                              </button>
+                            </>
+                          )}
                         </article>
                       ))}
                     {(memory?.plan_blocks || [])
                       .filter(
                         (item) =>
-                          new Date(String(item.starts_at)).toDateString() ===
-                            day.toDateString() &&
-                          new Date(String(item.starts_at)).getHours() === hour
+                          zonedDateKey(item.starts_at, state.time_zone) === day &&
+                          zonedHour(item.starts_at, state.time_zone) === hour
                       )
                       .map((item) => (
                         <article
@@ -934,7 +998,7 @@ function Plan({
                             {fmt(item.starts_at, {
                               hour: "2-digit",
                               minute: "2-digit",
-                            })}{" "}
+                            }, state.time_zone)}{" "}
                             · {String(item.reason)}
                           </small>
                           <div>
@@ -970,6 +1034,15 @@ function Plan({
           </div>
         </section>
       </div>
+      {!memory?.plan_blocks.length && (
+        <div className="memury-insufficient" role="status">
+          <strong>当前没有可安排的学习块</strong>
+          <p>
+            {state.planning_status?.unscheduled[0]?.reason ||
+              "同步 Canvas 后重新规划；若仍为空，请检查截止时间与个人占用。"}
+          </p>
+        </div>
+      )}
       <p className="memury-plan-help">
         拖动学习块到新的小时格会吸附并锁定。若与不可占用事件冲突，重新规划会把未锁定块移到下一可用窗口。
       </p>
@@ -1076,7 +1149,7 @@ function Memory({
               <span>{String(item.status)}</span>
               <p>{String(item.content)}</p>
               <small>
-                {String(item.source_kind)} · {fmt(item.created_at)}
+                      {String(item.source_kind)} · {fmt(item.created_at, undefined, state.time_zone)}
               </small>
               {item.status !== "resolved" && (
                 <button

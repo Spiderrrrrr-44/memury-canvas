@@ -35,4 +35,29 @@ describe Memury::RiskEngine do
     expect(after["risk"]).to be < before["risk"]
     expect(after["risk_reasons"]).to eq(["已完成本轮补强，风险已显著下降"])
   end
+
+
+  it "only applies SIS exam proximity to the matching course" do
+    physics_exam = exam.merge("course_id" => "physics")
+    mechanics = assignment.except("exam_relevance").merge("course_id" => "mechanics")
+    physics = assignment.except("exam_relevance").merge("id" => "physics-task", "course_id" => "physics")
+
+    result = described_class.call(assignments: [mechanics, physics], sis_events: [physics_exam], concept:,
+                                  recent_activity_at: now, completed_assignment_ids: [], now:)
+
+    expect(result.find { |item| item["id"] == "physics-task" }["risk_reasons"]).to include("三天内有相关考试")
+    expect(result.find { |item| item["id"] == "mechanics-1" }["risk_reasons"]).not_to include("三天内有相关考试")
+  end
+
+  it "labels overdue and missing deadlines without presenting them as due in zero hours" do
+    overdue = assignment.merge("due_at" => (now - 2.hours).iso8601)
+    missing = assignment.merge("id" => "without-due-date", "due_at" => nil)
+
+    result = described_class.call(assignments: [overdue, missing], sis_events: [], concept:,
+                                  recent_activity_at: now, completed_assignment_ids: [], now:)
+
+    expect(result.find { |item| item["id"] == "mechanics-1" }["risk_reasons"]).to include("作业已逾期，当前仍未提交")
+    expect(result.find { |item| item["id"] == "without-due-date" }["risk_reasons"]).to include("Canvas 暂未提供截止时间")
+    expect(result.flat_map { |item| item["risk_reasons"] }).not_to include("作业将在 0 小时内截止")
+  end
 end

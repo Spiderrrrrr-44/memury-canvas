@@ -29,6 +29,7 @@ module Memury
       risks = build_risks(assignments)
 
       state.merge(
+        "time_zone" => Time.zone.tzinfo.name,
         "assignments" => assignments,
         "today" => build_today(today_blocks),
         "academic_snapshot" => build_academic_snapshot(assignments, courses, risks),
@@ -65,6 +66,10 @@ module Memury
 
     def add_course_id(assignment)
       item = assignment.stringify_keys
+      canvas_course = state.fetch("canvas", {}).fetch("courses", []).map(&:stringify_keys).find do |course|
+        course["name"].to_s.casecmp(item["course_name"].to_s).zero?
+      end
+      item["course_id"] = canvas_course["id"].to_s if canvas_course
       item["course_id"] ||= course_id_for(item["course_name"])
       item
     end
@@ -108,7 +113,7 @@ module Memury
           "assignment_count" => course_assignments.length,
           "incomplete_count" => course_assignments.count { |item| incomplete_assignment?(item) },
           "estimated_minutes" => course_assignments.sum { |item| item.fetch("estimated_minutes", 0).to_i },
-          "upcoming_exam" => upcoming_exam_for(course_name),
+          "upcoming_exam" => upcoming_exam_for(course_name, course_id),
           "weak_concepts" => weak_concepts_for(course_name),
           "recent_evidence" => recent_evidence_for(course_name),
           "next_action" => next_action,
@@ -179,7 +184,8 @@ module Memury
     def actionable_assignments(assignments)
       completed_ids = state.fetch("completed_assignment_ids", []).map(&:to_s)
       assignments.reject do |assignment|
-        assignment["submitted"] || completed_ids.include?(assignment["id"].to_s)
+        due_at = assignment_due_at(assignment)
+        assignment["submitted"] || completed_ids.include?(assignment["id"].to_s) || (due_at && due_at < @now)
       end
     end
 
@@ -195,12 +201,12 @@ module Memury
         {
           "type" => "learner_state",
           "id" => concept_id,
-          "label" => "#{state.dig("concept", "name")} · 掌握度 #{(state.dig("concept", "mastery").to_f * 100).round}%",
+          "label" => "#{assignment["concept"].presence || state.dig("concept", "name")} · 掌握度 #{((assignment["evidence_mastery"] || state.dig("concept", "mastery")).to_f * 100).round}%",
           "source" => "Learner State",
           "official_or_inferred" => "Inferred"
         }
       ]
-      exam = upcoming_exam_for(assignment["course_name"])
+      exam = upcoming_exam_for(assignment["course_name"], assignment["course_id"])
       if exam
         provenance = event_provenance(exam)
         evidence << {
@@ -316,7 +322,10 @@ module Memury
         "overdue_count" => overdue_assignments(assignments).length,
         "upcoming_exam_count" => upcoming_exams.length,
         "overall_risk" => risks.map { |item| item["risk"].to_f }.max.to_f.round(2),
-        "weekly_estimated_minutes" => assignments.select { |item| parse_time(item["due_at"]) <= @now + 7.days && incomplete_assignment?(item) }.sum { |item| item.fetch("estimated_minutes", 0).to_i }
+        "weekly_estimated_minutes" => assignments.select do |item|
+          due_at = assignment_due_at(item)
+          due_at && due_at >= @now && due_at <= @now + 7.days && incomplete_assignment?(item)
+        end.sum { |item| item.fetch("estimated_minutes", 0).to_i }
       }
     end
 
@@ -393,8 +402,13 @@ module Memury
       state.fetch("evidence", []).last(3).reverse
     end
 
-    def upcoming_exam_for(course_name)
-      upcoming_exams.find { |exam| exam["title"].to_s.start_with?(course_name.to_s) }
+    def upcoming_exam_for(course_name, course_id = nil)
+      course_key = course_name.to_s.split(":", 2).first
+      upcoming_exams.find do |exam|
+        (course_id.present? && exam["course_id"].to_s == course_id.to_s) ||
+          exam["title"].to_s.start_with?(course_name.to_s) ||
+          (course_key.present? && exam["title"].to_s.start_with?(course_key))
+      end
     end
 
     def event_provenance(event)
@@ -410,19 +424,25 @@ module Memury
 
     def due_soon_assignments(assignments = state.fetch("assignments", []))
       assignments.select do |assignment|
-        incomplete_assignment?(assignment) && parse_time(assignment["due_at"]) >= @now && parse_time(assignment["due_at"]) <= @now + 72.hours
+        due_at = assignment_due_at(assignment)
+        incomplete_assignment?(assignment) && due_at && due_at >= @now && due_at <= @now + 72.hours
       end
     end
 
     def overdue_assignments(assignments = state.fetch("assignments", []))
-      assignments.select { |assignment| incomplete_assignment?(assignment) && parse_time(assignment["due_at"]) < @now }
+      assignments.select do |assignment|
+        due_at = assignment_due_at(assignment)
+        incomplete_assignment?(assignment) && due_at && due_at < @now
+      end
     end
 
     def assignment_status(assignment)
       return "completed" if state.fetch("completed_assignment_ids", []).map(&:to_s).include?(assignment["id"].to_s)
       return "submitted" if assignment["submitted"]
-      return "overdue" if parse_time(assignment["due_at"]) < @now
-      return "due_soon" if parse_time(assignment["due_at"]) <= @now + 72.hours
+      due_at = assignment_due_at(assignment)
+      return "no_due_date" unless due_at
+      return "overdue" if due_at < @now
+      return "due_soon" if due_at <= @now + 72.hours
 
       "upcoming"
     end
@@ -449,6 +469,15 @@ module Memury
       Time.zone.parse(value.to_s) || @now
     rescue ArgumentError, TypeError
       @now
+    end
+
+    def assignment_due_at(assignment)
+      value = assignment["due_at"]
+      return if value.blank?
+
+      Time.zone.parse(value.to_s)
+    rescue ArgumentError, TypeError
+      nil
     end
   end
 end

@@ -39,8 +39,8 @@ class MemuryController < ApplicationController
     state["assignments"] = merge_assignments(state.fetch("assignments", []), canvas[:assignments])
     state["last_synced_at"] = Time.zone.now.iso8601
     state["sync_summary"] = { "courses" => canvas[:courses].length, "assignments" => canvas[:assignments].length }
+    apply_schedule(state)
     @profile.update!(state:, last_synced_at: Time.zone.now)
-    Memury::Scheduler.call(user: @current_user, assignments: presentable_assignments(state))
     render json: present_state
   end
 
@@ -106,18 +106,24 @@ class MemuryController < ApplicationController
   end
 
   def replan
-    Memury::Scheduler.call(user: @current_user, assignments: presentable_assignments(@profile.state))
+    state = @profile.state.deep_dup
+    apply_schedule(state)
+    @profile.update!(state:)
     render json: present_state
   end
 
   def create_event
     semester_commands.create_event(event_params)
     replan
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: e.record.errors.full_messages.join("；") }, status: :unprocessable_content
   end
 
   def update_event
     semester_commands.update_event(params[:id], event_params)
     replan
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: e.record.errors.full_messages.join("；") }, status: :unprocessable_content
   end
 
   def destroy_event
@@ -128,6 +134,8 @@ class MemuryController < ApplicationController
   def update_plan_block
     semester_commands.update_plan_block(params[:id], plan_block_params)
     render json: present_state
+  rescue ActiveRecord::RecordInvalid => e
+    render json: { error: e.record.errors.full_messages.join("；") }, status: :unprocessable_content
   end
 
   def focus
@@ -188,6 +196,14 @@ class MemuryController < ApplicationController
 
   def merge_assignments(existing, canvas_assignments)
     canvas = canvas_assignments.map(&:stringify_keys)
+    catalog_by_title = Memury::DemoCourseCatalog.assignments.index_by { |item| item[:title] }
+    existing_by_title = existing.index_by { |item| item["title"] }
+    canvas.each do |item|
+      catalog_item = catalog_by_title[item["title"]]
+      existing_item = existing_by_title[item["title"]]
+      demo_id = catalog_item&.fetch(:id, nil) || existing_item&.fetch("demo_assignment_id", nil)
+      item["demo_assignment_id"] = demo_id.to_s if demo_id.present?
+    end
     official_titles = canvas.pluck("title").to_set
     simulated = existing.select do |item|
       item["official_or_inferred"] == "Simulated" && !official_titles.include?(item["title"])
@@ -634,12 +650,23 @@ class MemuryController < ApplicationController
     )
   end
 
+  def apply_schedule(state)
+    result = Memury::Scheduler.call(user: @current_user, assignments: presentable_assignments(state))
+    state["planning_status"] = {
+      "status" => result.blocks.any? ? "planned" : "no_available_time",
+      "generated_count" => result.blocks.length,
+      "unscheduled" => result.unscheduled,
+      "updated_at" => Time.zone.now.iso8601
+    }
+    result
+  end
+
   def semester_commands
     @semester_commands ||= Memury::SemesterCommandService.new(user: @current_user)
   end
 
   def event_params
-    params.permit(:title, :starts_at, :ends_at, :availability, :recurrence_rule, :locked, :course_id, :source_kind).to_h.symbolize_keys
+    params.permit(:title, :starts_at, :ends_at, :availability).to_h.symbolize_keys
   end
 
   def plan_block_params

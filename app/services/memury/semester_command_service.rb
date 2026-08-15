@@ -9,13 +9,15 @@ module Memury
 
     def create_event(attributes)
       Memury::CalendarEvent.create!(attributes.slice(
-        :title, :starts_at, :ends_at, :availability, :recurrence_rule, :locked, :course_id
-      ).merge(user:, source_kind: attributes[:source_kind].presence || "personal"))
+        :title, :starts_at, :ends_at, :availability
+      ).merge(user:, source_kind: "personal", recurrence_rule: nil, locked: attributes[:availability] == "busy"))
     end
 
     def update_event(id, attributes)
       event = Memury::CalendarEvent.find_by!(id:, user:)
-      event.update!(attributes.slice(:title, :starts_at, :ends_at, :availability, :recurrence_rule, :locked))
+      payload = attributes.slice(:title, :starts_at, :ends_at, :availability).merge(recurrence_rule: nil)
+      payload[:locked] = payload[:availability] == "busy" if payload[:availability].present?
+      event.update!(payload)
       event
     end
 
@@ -25,6 +27,8 @@ module Memury
 
     def update_plan_block(id, attributes)
       block = Memury::PlanBlock.find_by!(id:, user:)
+      proposed = block.attributes.symbolize_keys.merge(attributes.slice(:starts_at, :ends_at, :locked, :status))
+      validate_plan_window!(block, proposed)
       block.update!(attributes.slice(:starts_at, :ends_at, :locked, :status))
       block
     end
@@ -71,6 +75,27 @@ module Memury
     private
 
     attr_reader :user, :now
+
+    def validate_plan_window!(block, attributes)
+      starts_at = Time.zone.parse(attributes[:starts_at].to_s)
+      ends_at = Time.zone.parse(attributes[:ends_at].to_s)
+      return if starts_at.blank? || ends_at.blank?
+
+      if ends_at <= starts_at
+        block.errors.add(:ends_at, "must be after starts_at")
+      end
+
+      due_at = Time.zone.parse(block.metadata["due_at"].to_s)
+      block.errors.add(:ends_at, "must be before the assignment deadline") if due_at && ends_at > due_at
+
+      conflict = Memury::CalendarEvent.where(user:, availability: "busy")
+                                      .where("starts_at < ? AND ends_at > ?", ends_at, starts_at).exists?
+      block.errors.add(:base, "study block overlaps a busy event") if conflict
+      raise ActiveRecord::RecordInvalid, block if block.errors.any?
+    rescue ArgumentError, TypeError
+      block.errors.add(:base, "invalid study block time")
+      raise ActiveRecord::RecordInvalid, block
+    end
 
     def active_focus
       Memury::FocusSession.find_by(user:, status: "active")

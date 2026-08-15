@@ -1135,13 +1135,14 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
 }
 @media (max-width: 1000px) {
   .memury-product-nav {
-    grid-template-columns: auto 1fr;
+    grid-template-columns: auto 1fr auto;
   }
   .memury-product-nav nav {
     justify-content: flex-end;
   }
   .memury-quiet-button {
-    display: none;
+    font-size: 0.78rem;
+    padding-inline: 0.5rem;
   }
   .memury-hero,
   .memury-home-lower,
@@ -1182,12 +1183,14 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
   }
   .memury-product-nav {
     border-radius: 1.25rem;
-    grid-template-columns: 1fr;
+    grid-template-columns: 1fr auto;
     padding: 0.65rem;
     position: relative;
     top: 0;
   }
   .memury-product-nav nav {
+    grid-column: 1 / -1;
+    grid-row: 2;
     justify-content: space-between;
     overflow-x: auto;
   }
@@ -1196,7 +1199,12 @@ body.memury-ui-surface .ic-Layout-contentWrapper {
     font-size: 0.76rem;
   }
   .memury-wordmark {
-    display: none;
+    grid-column: 1;
+    grid-row: 1;
+  }
+  .memury-quiet-button {
+    grid-column: 2;
+    grid-row: 1;
   }
   .memury-term-context {
     flex-wrap: wrap;
