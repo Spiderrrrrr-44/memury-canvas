@@ -1,5 +1,7 @@
 const canvasUrl = "https://canvas.memury.net/login";
 const githubUrl = "https://github.com/Spiderrrrrr-44/memury-canvas";
+const submissionUrl = `${githubUrl}/raw/refs/heads/main/submission/Memury_%E5%88%9D%E8%B5%9B%E6%8F%90%E4%BA%A4%E6%9D%90%E6%96%99_2026-08-16.zip`;
+const demoUrl = `${githubUrl}/raw/refs/heads/main/submission/2026-08-16/03_Memury_Demo_2m16s.mp4`;
 
 export default function Home() {
   return (
@@ -274,8 +276,8 @@ export default function Home() {
           <h2>Review the complete Memury submission.</h2>
           <p>Project brief, proposal PDF, product video, source code, and the executable Canvas deployment kit.</p>
           <div className="trust-links">
-            <a className="button primary" href="/downloads/Memury_Submission_Pack_2026-08-16.zip">Download the full pack ↓</a>
-            <a className="button secondary" href="/downloads/Memury_Demo_2m16s.mp4">Watch the demo ↓</a>
+            <a className="button primary" href={submissionUrl}>Download the full pack ↓</a>
+            <a className="button secondary" href={demoUrl}>Watch the demo ↓</a>
           </div>
         </div>
         <p className="eyebrow">BUILT IN THE OPEN</p>
