@@ -50,5 +50,7 @@ describe MemuryController do
       hash_including("source_node_id" => "step-#{parent.id}", "relation" => "branch")
     )
     expect(session.reload.steps.where(kind: "student_question").count).to eq(1)
+    expect(session.steps.where(kind: "tutor_response").count).to eq(1)
+    expect(response.parsed_body.fetch("conversation_summary")).to be_present
   end
 end

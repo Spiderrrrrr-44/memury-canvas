@@ -88,6 +88,7 @@ const graph: LearningGraphState = {
 
 describe("LearningGraph", () => {
   beforeEach(() => {
+    document.documentElement.lang = "zh-CN";
     vi.mocked(api.getLearningGraph).mockReset();
     vi.mocked(api.continueLearningGraph).mockReset();
     vi.mocked(api.selectLearningGraphNode).mockReset();
@@ -101,6 +102,7 @@ describe("LearningGraph", () => {
   });
 
   it("renders current, unresolved, and verified states and inspects an old node", async () => {
+    const onOpenEvidence = vi.fn();
     vi.mocked(api.getLearningGraph).mockResolvedValue(graph);
     vi.mocked(api.selectLearningGraphNode).mockResolvedValue({
       ...graph,
@@ -110,32 +112,43 @@ describe("LearningGraph", () => {
       <LearningGraph
         assignmentId="assignment-1"
         assignmentTitle="Force analysis"
-      />
+        onOpenEvidence={onOpenEvidence}
+      />,
     );
 
     expect(
-      await screen.findByRole("heading", { name: "非线性学习空间" })
+      await screen.findByRole("heading", { name: "Q Graph" }),
     ).toBeVisible();
     expect(
-      screen.getByRole("button", { name: /Transfer verification/ })
+      screen.getByRole("button", {
+        name: /Transfer verification/,
+        current: "step",
+      }),
     ).toHaveAttribute("aria-current", "step");
     expect(screen.getAllByText("未解决误区").length).toBeGreaterThan(0);
     expect(screen.getAllByText("已验证 Evidence").length).toBeGreaterThan(0);
 
-    fireEvent.keyDown(
-      screen.getByRole("button", { name: /Concept boundary pending/ }),
-      { key: "Enter" }
-    );
+    const diagnosisNode = screen
+      .getAllByRole("button", { name: /Concept boundary pending/ })
+      .find((button) => button.hasAttribute("aria-pressed"));
+    expect(diagnosisNode).toBeDefined();
+    fireEvent.keyDown(diagnosisNode!, { key: "Enter" });
     await waitFor(() =>
       expect(api.selectLearningGraphNode).toHaveBeenCalledWith({
         assignmentId: "assignment-1",
         nodeId: "step-2",
-      })
+      }),
     );
+    fireEvent.click(screen.getByText("查看当前节点与来源"));
     expect(
-      screen.getByText("This is a candidate diagnosis, not verified mastery.")
+      screen.getByText("This is a candidate diagnosis, not verified mastery."),
     ).toBeVisible();
     expect(screen.getByText("#evidence-6")).toBeVisible();
+    expect(screen.getByLabelText("来源")).toHaveTextContent("diagnosis");
+    fireEvent.click(
+      screen.getByRole("button", { name: /evidence-6/ }),
+    );
+    expect(onOpenEvidence).toHaveBeenCalledWith("evidence-6");
   });
 
   it("persists a real branch from a selected historical node", async () => {
@@ -177,20 +190,25 @@ describe("LearningGraph", () => {
       <LearningGraph
         assignmentId="assignment-1"
         assignmentTitle="Force analysis"
-      />
+      />,
     );
 
-    fireEvent.click(
-      await screen.findByRole("button", { name: /Concept boundary pending/ })
-    );
-    await waitFor(() =>
-      expect(api.selectLearningGraphNode).toHaveBeenCalled()
-    );
-    fireEvent.click(screen.getByRole("button", { name: "从这里继续" }));
-    fireEvent.change(screen.getByLabelText("新分支问题"), {
-      target: { value: "What changes on an incline?" },
+    const diagnosisButtons = await screen.findAllByRole("button", {
+      name: /Concept boundary pending/,
     });
-    fireEvent.click(screen.getByRole("button", { name: "建立分支" }));
+    const diagnosisNode = diagnosisButtons.find((button) =>
+      button.hasAttribute("aria-pressed"),
+    );
+    expect(diagnosisNode).toBeDefined();
+    fireEvent.click(diagnosisNode!);
+    await waitFor(() => expect(api.selectLearningGraphNode).toHaveBeenCalled());
+    fireEvent.change(
+      screen.getByLabelText(/从「Concept boundary pending」继续/),
+      {
+        target: { value: "What changes on an incline?" },
+      },
+    );
+    fireEvent.click(screen.getByRole("button", { name: "发送" }));
 
     await waitFor(() =>
       expect(api.continueLearningGraph).toHaveBeenCalledWith(
@@ -198,34 +216,85 @@ describe("LearningGraph", () => {
           assignmentId: "assignment-1",
           parentNodeId: "step-2",
           question: "What changes on an incline?",
-        })
-      )
+        }),
+      ),
     );
     expect(
-      await screen.findByRole("button", { name: /What changes on an incline/ })
+      await screen.findByRole("button", {
+        name: /What changes on an incline/,
+        current: "step",
+      }),
     ).toHaveAttribute("aria-current", "step");
   });
 
-  it("shows an honest empty state instead of placeholder graph nodes", async () => {
+  it("opens a document-grounded conversation without inventing graph nodes", async () => {
     vi.mocked(api.getLearningGraph).mockResolvedValue({
       ...graph,
       current_node_id: null,
       nodes: [],
       edges: [],
-      writable: false,
+      writable: true,
     });
     render(
       <LearningGraph
         assignmentId="assignment-1"
         assignmentTitle="Force analysis"
-      />
+      />,
     );
 
     expect(
-      await screen.findByRole("heading", { name: "尚未形成学习路径" })
+      await screen.findByRole("heading", { name: "Q Graph" }),
     ).toBeVisible();
+    expect(screen.getByText("从文档开始一段对话")).toBeVisible();
+    expect(screen.getByLabelText("问这份文档")).toBeVisible();
     expect(
-      screen.queryByText("Understand force balance")
+      screen.queryByText("Understand force balance"),
     ).not.toBeInTheDocument();
+  });
+
+  it("shows the full conversation and its generated summary", async () => {
+    vi.mocked(api.getLearningGraph).mockResolvedValue({
+      ...graph,
+      conversation_turns: 1,
+      conversation_summary: "讨论了受力对象与平衡条件。",
+      conversation_key_points: ["先确认受力对象", "再检查平衡条件"],
+      nodes: [
+        ...graph.nodes,
+        {
+          id: "step-4",
+          kind: "student_question",
+          title: "为什么支持力不做功？",
+          summary: "为什么支持力不做功？",
+          created_at: "2026-08-15T08:03:00Z",
+          verification_state: "pending",
+          evidence_refs: [],
+          relationship: "branch",
+        },
+        {
+          id: "step-5",
+          kind: "tutor_response",
+          title: "Q Graph",
+          summary: "先比较力的方向与物体的位移。",
+          created_at: "2026-08-15T08:04:00Z",
+          verification_state: "exploration",
+          evidence_refs: [],
+          relationship: "response",
+        },
+      ],
+    });
+
+    render(
+      <LearningGraph
+        assignmentId="assignment-1"
+        assignmentTitle="Force analysis"
+        documentTitle="自由体图说明"
+      />,
+    );
+
+    expect((await screen.findAllByText("为什么支持力不做功？")).length).toBeGreaterThan(0);
+    expect(screen.getByText("先比较力的方向与物体的位移。")).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "总结整个对话" }));
+    expect(screen.getByText("讨论了受力对象与平衡条件。")).toBeVisible();
+    expect(screen.getByText("先确认受力对象")).toBeVisible();
   });
 });

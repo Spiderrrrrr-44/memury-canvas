@@ -1,0 +1,236 @@
+diff --git a/app/controllers/assignments_controller.rb b/app/controllers/assignments_controller.rb
+index e18f08b1..7aa70a04 100644
+--- a/app/controllers/assignments_controller.rb
++++ b/app/controllers/assignments_controller.rb
+@@ -571,6 +571,7 @@ class AssignmentsController < ApplicationController
+         else
+           css_bundle :assignments
+           js_bundle :assignment_show
++          js_bundle :memury if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user)
+         end
+ 
+         mastery_scales_js_env
+diff --git a/app/controllers/courses_controller.rb b/app/controllers/courses_controller.rb
+index 826cf0b6..09fcf2fd 100644
+--- a/app/controllers/courses_controller.rb
++++ b/app/controllers/courses_controller.rb
+@@ -2741,6 +2741,7 @@ class CoursesController < ApplicationController
+         end
+ 
+         js_bundle :course, :course_show
++        js_bundle :memury if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user)
+         css_bundle :course_show
+ 
+         if @context_enrollment
+diff --git a/app/controllers/users_controller.rb b/app/controllers/users_controller.rb
+index 46819f15..f70d146e 100644
+--- a/app/controllers/users_controller.rb
++++ b/app/controllers/users_controller.rb
+@@ -546,6 +546,7 @@ class UsersController < ApplicationController
+       # things needed only for classic dashboard
+       css_bundle :dashboard
+       js_bundle :dashboard
++      js_bundle :memury if @domain_root_account&.feature_enabled?(:memury)
+     end
+ 
+     @announcements = AccountNotification.for_user_and_account(@current_user, @domain_root_account)
+diff --git a/app/views/assignments/show.html.erb b/app/views/assignments/show.html.erb
+index 97e97f96..6492a7d7 100644
+--- a/app/views/assignments/show.html.erb
++++ b/app/views/assignments/show.html.erb
+@@ -149,6 +149,14 @@
+         <%= assignment_submission_button(@assignment, @current_user, @current_user_submission, @first_annotation_submission) %>
+       </div>
+     </div>
++    <% if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user) %>
++      <div
++        id="memury-context-root"
++        data-context-type="assignment"
++        data-course-id="<%= @context.id %>"
++        data-assignment-id="<%= @assignment.id %>"
++      ></div>
++    <% end %>
+     <% if @domain_root_account&.feature_enabled?(:lti_asset_processor) %>
+       <div id="assignment_asset_processor_eula"></div>
+     <% end %>
+diff --git a/app/views/courses/show.html.erb b/app/views/courses/show.html.erb
+index b76bdf0f..00c9b7cb 100644
+--- a/app/views/courses/show.html.erb
++++ b/app/views/courses/show.html.erb
+@@ -60,6 +60,13 @@
+   <% js_bundle :announcements_on_home_page %>
+ <% end %>
+ <div id="course_home_content">
++  <% if @domain_root_account&.feature_enabled?(:memury) && @context.user_is_student?(@current_user) %>
++    <div
++      id="memury-context-root"
++      data-context-type="course"
++      data-course-id="<%= @context.id %>"
++    ></div>
++  <% end %>
+   <% if @display_tag_converter_message %>
+     <div id="differentiation-tag-converter-message-root"></div>
+   <% end %>
+diff --git a/app/views/shared/_new_nav_header.html.erb b/app/views/shared/_new_nav_header.html.erb
+index 3dea17f4..bf2c4ea4 100644
+--- a/app/views/shared/_new_nav_header.html.erb
++++ b/app/views/shared/_new_nav_header.html.erb
+@@ -160,6 +160,16 @@
+         </a>
+       </li>
+       <% if @current_user %>
++        <% if @domain_root_account&.feature_enabled?(:memury) %>
++          <li class="menu-item ic-app-header__menu-list-item <%= 'ic-app-header__menu-list-item--active' if active_path?('/memury') %>">
++            <a id="global_nav_memury_link" href="/memury" class="ic-app-header__menu-list-link">
++              <div class="menu-item-icon-container" aria-hidden="true">
++                <%= render(partial: "shared/svg/svg_icon_calendar_new_styles", formats: [:svg]) %>
++              </div>
++              <div class="menu-item__text"><%= t('Memury') %></div>
++            </a>
++          </li>
++        <% end %>
+         <li class="menu-item ic-app-header__menu-list-item <%= 'ic-app-header__menu-list-item--active' if active_path?('/courses') %>">
+           <a id="global_nav_courses_link" role="button" href="/courses" class="ic-app-header__menu-list-link">
+             <div class="menu-item-icon-container" aria-hidden="true">
+diff --git a/app/views/users/user_dashboard.html.erb b/app/views/users/user_dashboard.html.erb
+index 6324f574..277b1bfb 100644
+--- a/app/views/users/user_dashboard.html.erb
++++ b/app/views/users/user_dashboard.html.erb
+@@ -91,6 +91,9 @@ if k5_user?
+   <h1 class="screenreader-only"><%= dashboard_title %></h1>
+   <%= render :partial => 'shared/dashboard_invitation', :collection => @pending_invitations %>
+   <%= render :partial => 'shared/dashboard_messages' %>
++  <% if @domain_root_account&.feature_enabled?(:memury) %>
++    <div id="memury-dashboard-root" data-context-type="dashboard"></div>
++  <% end %>
+   <% if k5_user? %>
+     <div id="dashboard-app-container"></div>
+   <% else %>
+diff --git a/config/routes.rb b/config/routes.rb
+index 658c6e29..52a75f39 100644
+--- a/config/routes.rb
++++ b/config/routes.rb
+@@ -25,6 +25,27 @@ Rails.root.glob("{gems,vendor}/plugins/*/config/pre_routes.rb") do |pre_routes|
+ end
+ 
+ CanvasRails::Application.routes.draw do
++  get "memury", to: "memury#index", as: :memury
++  get "memury/learn/:assignment_id", to: "memury#index", as: :memury_learn
++  get "memury/risks", to: "memury#index", as: :memury_risks
++  get "memury/plan", to: "memury#index", as: :memury_plan
++  get "memury/memory", to: "memury#index", as: :memury_memory
++  get "memury/state", to: "memury#state", as: :memury_state
++  post "memury/sync", to: "memury#sync", as: :memury_sync
++  post "memury/reset", to: "memury#reset", as: :memury_reset
++  get "memury/learning_graph", to: "memury#learning_graph", as: :memury_learning_graph
++  post "memury/learning_graph/branches", to: "memury#continue_learning_graph", as: :memury_learning_graph_branches
++  patch "memury/learning_graph/current", to: "memury#select_learning_graph_node", as: :memury_learning_graph_current
++  patch "memury/action", to: "memury#action", as: :memury_action
++  post "memury/replan", to: "memury#replan", as: :memury_replan
++  post "memury/events", to: "memury#create_event", as: :memury_events
++  patch "memury/events/:id", to: "memury#update_event", as: :memury_event
++  delete "memury/events/:id", to: "memury#destroy_event"
++  patch "memury/plan_blocks/:id", to: "memury#update_plan_block", as: :memury_plan_block
++  post "memury/focus/:command", to: "memury#focus", as: :memury_focus
++  post "memury/questions", to: "memury#create_question", as: :memury_questions
++  patch "memury/questions/:id", to: "memury#update_question", as: :memury_question
++
+   # Test-only routes for Selenium tests with mock LTI tool
+   if Rails.env.test?
+     post "/test/mock_lti/ui", to: "test/mock_lti#ui"
+diff --git a/ui/featureBundles.ts b/ui/featureBundles.ts
+index f282cb74..3bcdfb93 100644
+--- a/ui/featureBundles.ts
++++ b/ui/featureBundles.ts
+@@ -21,6 +21,7 @@ const featureBundles: {
+ } = {
+   // TODO: move these into ui/boot/initializers/router.tsx
+   accessibility_checker: () => import('./features/accessibility/accessibility_checker/index'),
++  memury: () => import('./features/memury/index'),
+   accessibility_course_statistics: () =>
+     import('./features/accessibility/accessibility_course_statistics/index'),
+   account_admin_tools: () => import('./features/account_admin_tools/index'),
+diff --git a/ui/features/navigation_header/react/MobileGlobalMenu.tsx b/ui/features/navigation_header/react/MobileGlobalMenu.tsx
+index 36a86f75..ef3da7e6 100644
+--- a/ui/features/navigation_header/react/MobileGlobalMenu.tsx
++++ b/ui/features/navigation_header/react/MobileGlobalMenu.tsx
+@@ -67,6 +67,7 @@ type Props = {
+ 
+ export default function MobileGlobalMenu(props: Props) {
+   const showGroups = useMemo(() => Boolean(document.getElementById('global_nav_groups_link')), [])
++  const showMemury = useMemo(() => Boolean(document.getElementById('global_nav_memury_link')), [])
+   const countsEnabled = Boolean(
+     window.ENV.current_user_id && !window.ENV.current_user?.fake_student,
+   )
+@@ -161,6 +162,21 @@ export default function MobileGlobalMenu(props: Props) {
+           </Link>
+         </List.Item>
+ 
++        {showMemury && (
++          <List.Item>
++            <Link href="/memury" isWithinText={false} display="block">
++              <Flex>
++                <Flex.Item width="3rem">
++                  <IconCalendarMonthLine inline={false} size="small" />
++                </Flex.Item>
++                <Flex.Item>
++                  <Text size="medium">{I18n.t('Memury')}</Text>
++                </Flex.Item>
++              </Flex>
++            </Link>
++          </List.Item>
++        )}
++
+         <List.Item>
+           {current_user && Object.keys(current_user).length > 0 ? (
+             <ToggleDetails
+diff --git a/ui/features/navigation_header/react/SideNav.tsx b/ui/features/navigation_header/react/SideNav.tsx
+index 6279a060..c6653e6f 100644
+--- a/ui/features/navigation_header/react/SideNav.tsx
++++ b/ui/features/navigation_header/react/SideNav.tsx
+@@ -88,6 +88,7 @@ interface ISideNav {
+ 
+ const SideNav: React.FC<ISideNav> = ({externalTools = []}) => {
+   const [collapseSideNav, setCollapseSideNav] = useState(window.ENV.SETTINGS.collapse_global_nav)
++  const showMemury = useMemo(() => Boolean(document.getElementById('global_nav_memury_link')), [])
+   const [state, dispatch] = useReducer(sideNavReducer, initialState)
+   const {isTrayOpen, activeTray, selectedNavItem, previousSelectedNavItem} = state
+   const processedTools = useMemo(() => filterAndProcessTools(externalTools), [externalTools])
+@@ -345,6 +346,19 @@ const SideNav: React.FC<ISideNav> = ({externalTools = []}) => {
+             }}
+             minimized={collapseSideNav}
+           />
++          {showMemury && (
++            <SideNavBar.Item
++              id="memury-tray"
++              icon={<IconCalendarMonthLine />}
++              label={I18n.t('Memury')}
++              href="/memury"
++              onClick={() => handleActiveTray('memury')}
++              selected={selectedNavItem === 'memury'}
++              data-selected={selectedNavItem === 'memury'}
++              themeOverride={{fontWeight: 400}}
++              minimized={collapseSideNav}
++            />
++          )}
+           <SideNavBar.Item
+             id="courses-tray"
+             icon={<IconCoursesLine />}
+diff --git a/ui/features/navigation_header/react/utils.ts b/ui/features/navigation_header/react/utils.ts
+index 3f06fdb3..9bfc4acc 100644
+--- a/ui/features/navigation_header/react/utils.ts
++++ b/ui/features/navigation_header/react/utils.ts
+@@ -76,11 +76,12 @@ export type ActiveTray =
+   | 'groups'
+   | 'help'
+   | 'history'
++  | 'memury'
+   | 'profile'
+ 
+ const EXTERNAL_TOOLS_REGEX = /^\/accounts\/[^\/]*\/(external_tools)/
+ const ACTIVE_ROUTE_REGEX =
+-  /^\/(courses|groups|accounts|grades|calendar|conversations|profile)|^#history/
++  /^\/(courses|groups|accounts|grades|calendar|conversations|memury|profile)|^#history/
+ export function getActiveItem(): ActiveTray | '' {
+   const path = window.location.pathname
+   const toolId = window.location.search.split('toolId=')

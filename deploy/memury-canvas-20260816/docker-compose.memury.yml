@@ -1,0 +1,13 @@
+version: "3.8"
+
+services:
+  canvas:
+    image: ${CANVAS_IMAGE}
+    environment:
+      MEMURY_DEMO_MODE: ${MEMURY_DEMO_MODE:-true}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      MEMURY_OPENAI_MODEL: ${MEMURY_OPENAI_MODEL:-gpt-5-mini}
+    mem_limit: 2800m
+    memswap_limit: 7g
+    cpus: 3.0
+    restart: unless-stopped

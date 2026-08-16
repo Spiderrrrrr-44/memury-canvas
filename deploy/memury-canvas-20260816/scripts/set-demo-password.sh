@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+
+set -Eeuo pipefail
+
+login="${LOGIN:-memury.student@example.test}"
+read -r -s -p "New Canvas password for ${login}: " password
+printf '\n'
+read -r -s -p "Confirm password: " confirmation
+printf '\n'
+
+if [[ "${password}" != "${confirmation}" || ${#password} -lt 8 ]]; then
+  echo "Passwords must match and contain at least 8 characters." >&2
+  exit 1
+fi
+
+printf '%s' "${password}" | docker exec -i -e LOGIN="${login}" canvas-lms \
+  bundle exec rails runner '
+    pseudonym = Pseudonym.active.find_by!(account: Account.default, unique_id: ENV.fetch("LOGIN"))
+    password = STDIN.read
+    pseudonym.password = password
+    pseudonym.password_confirmation = password
+    pseudonym.save!
+    puts "Canvas password updated for #{pseudonym.unique_id}."
+  '
+
+unset password confirmation

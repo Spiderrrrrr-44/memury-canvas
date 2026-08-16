@@ -59,14 +59,14 @@ The task creates or refreshes:
 - one submitted and two unsubmitted assignment states;
 - the deterministic Memury learner profile and feature flag.
 
-For a newly created login, set a private password once from WSL. Input is hidden and is passed to Rails only through standard input; it is not stored in shell history, command arguments, logs, or this repository:
+For a newly created login, set its password once from WSL. Input is hidden and is passed to Rails only through standard input; it is not stored in shell history, command arguments, or logs:
 
 ```bash
 cd /path/to/memury-canvas-runtime
 bash script/memury_set_demo_password
 ```
 
-Do not place the password in `.env.memury`, a command argument, documentation, screenshots, or chat. To use another existing login, set `LOGIN` for both commands.
+Do not place private, production, administrator, or reused passwords in `.env.memury`, command arguments, documentation, screenshots, or chat. The root README intentionally publishes one isolated demo-student credential for `canvas.memury.net`; it must never be reused for another account. To use another existing login, set `LOGIN` for both commands.
 
 The seed is safe to rerun: it reuses the login, course, enrollment, and same-title assignments instead of creating duplicates. It resets only that user's Memury profile and refreshes relative deadlines.
 
@@ -92,7 +92,7 @@ Memury-generated study blocks are inferred data. Rescheduled blocks are labeled 
 
 ## Demo walkthrough
 
-1. Sign out of the administrator session and sign in as `memury.student@example.test` using the locally configured private password.
+1. Sign out of the administrator session and sign in as `memury.student@example.test` using the public Demo password from the root README on `canvas.memury.net`, or the locally configured password in a private environment.
 2. Open **Memury** from Canvas global navigation.
 3. Select **重置 Demo**, then **同步 Canvas 并重新规划**. Confirm the summary says **1 门课程，3 项作业**.
 4. Review the real Canvas assignment marked **正式**, the single next-best action, explainable risk ordering, simulated SIS events, and three Study Blocks.
@@ -100,6 +100,8 @@ Memury-generated study blocks are inferred data. Rescheduled blocks are labeled 
 6. Request one or more progressive hints, enter Transfer, and choose the correct transfer answer.
 7. Return home to show the mastery update, lower target risk, and new next-best action.
 8. Refresh to confirm persistence, then use **重置 Demo** to restore the initial state.
+
+For the current Q Graph release, also open a Canvas document with **Q Graph**, ask at least two connected questions, and confirm that the final summary covers the entire conversation while retaining the document source.
 
 See the [three-minute demo script](docs/memury/DEMO_SCRIPT.md) for the exact presentation path.
 

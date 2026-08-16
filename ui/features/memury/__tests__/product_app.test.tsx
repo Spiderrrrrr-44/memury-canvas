@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   currentRoute,
   resolveAssignment,
+  workspaceViewForLearningMode,
   zonedDateKey,
   zonedHour,
 } from "../product_app";
@@ -39,6 +40,12 @@ describe("Memury product routes", () => {
     };
 
     expect(resolveAssignment([assignment], "mech-force")).toBe(assignment);
+  });
+
+  it("routes the three proposal learning modes into the right workspace", () => {
+    expect(workspaceViewForLearningMode("direct")).toBe("evidence");
+    expect(workspaceViewForLearningMode("review")).toBe("evidence");
+    expect(workspaceViewForLearningMode("continuous")).toBe("graph");
   });
 
   it("places scheduled blocks in the Canvas user time zone instead of the browser time zone", () => {

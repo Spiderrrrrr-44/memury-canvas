@@ -1,73 +1,86 @@
 # Memury
 
-**An LMS-native, goal-aware adaptive learning agent built on Canvas LMS.**
+**A Canvas-native learning agent for document-grounded conversation, explainable planning, and verified learning memory.**
 
-Memury turns fragmented academic information—courses, assignments, deadlines, schedules, submissions, and learning evidence—into an actionable study plan. It then uses active diagnosis to identify likely misconceptions, provide targeted interventions, update the learner state, and dynamically adjust the plan.
+Memury keeps learning inside its original context. A student can open a Canvas document with Q Graph, ask follow-up questions, branch from an idea, and finish with the whole conversation summarized. Verified Canvas activity and learning evidence can then inform an explainable next-step plan.
 
-> Memury is an independent project built on the open-source Instructure Canvas LMS. It is not an official Instructure product.
+> Memury is an independent open-source project built on Canvas LMS. It is not an official Instructure product.
 
-## Why Memury?
+## Live demo
 
-Traditional learning platforms mainly tell students what content exists and when work is due. They rarely answer the more useful question:
+The current release is deployed on the 4-core / 4 GB Memury server:
 
-> What should I do next, and why?
+- Canvas login: <https://canvas.memury.net/login>
+- Memury product: <https://canvas.memury.net/memury>
+- Account: `memury.student@example.test`
+- Password: `M3mury!cV8#qL2@pR7z`
 
-Memury adds an agentic learning layer to Canvas. It combines official course data with an evolving learner state to prioritize tasks, schedule study actions, diagnose learning difficulties, and replan when new evidence appears.
+These credentials are intentionally public and belong only to the isolated demo student. Do not reuse this password for a real Canvas, email, LMS, or administrator account. Demo data may be reset at any time.
 
-## Core workflow
+## What is available now
 
-```text
-Canvas student data
-→ normalized academic timeline
-→ deterministic risk and priority scoring
-→ next best learning action
-→ executable study blocks
-→ active misconception diagnosis
-→ learner-state update
-→ plan adjustment
-```
+- Canvas-native `/memury` workspace with the Canvas shell preserved.
+- Q Graph as the primary learning surface rather than a standalone feature demo.
+- Open a document with Q Graph and keep the response grounded in that source.
+- Persistent multi-turn conversation with a whole-chat summary.
+- Interface copy follows the signed-in user's Canvas language preference.
+- Cross-course overview, explainable risk ordering, and constrained study blocks.
+- Verified Canvas records separated from inferred and simulated learning data.
+- Read-only treatment of official grades and submissions.
+- Apple-inspired light design system shared by Memury and Q Graph.
 
-Memury currently supports two connected loops:
-
-1. **Academic Planning Loop**
-
-   Course and deadline synchronization → risk scoring → study blocks → completion, skipping, or rescheduling.
-
-2. **Adaptive Learning Loop**
-
-   Candidate misconception → minimal verification → graduated hints → transfer question → evidence-based learner-state update.
-
-## Current MVP capabilities
-
-- Canvas global navigation entry controlled by a RootAccount Feature Flag.
-- Student-scoped synchronization of active courses, assignments, and the current user’s submission summaries.
-- Explicitly labeled demo SIS schedule and exam data.
-- Deterministic task-risk scoring with human-readable explanations.
-- Three-stage study blocks that can be completed, skipped, or deferred.
-- Active diagnostic flow with candidate causes, verification, hints, and transfer questions.
-- Server-side AI diagnosis with strict schema validation and deterministic fallback.
-- Persistent learner profiles, evidence, decision logs, and study plans.
-- Demo mode that does not require an external AI API key.
-- Read-only handling of Canvas grades and submissions.
-- Provenance fields for official, inferred, and simulated data.
-
-## Architecture
+## Product workflow
 
 ```text
-Current Canvas user
-→ CanvasNativeConnector / DemoSisConnector
-→ normalized provenance-aware data
-→ PriorityScorer
-→ Study Blocks
-→ diagnostic workflow
-→ LearnerStateUpdater
-→ Evidence / DecisionLog
-→ persistent learner state and replanning
+Canvas course or document
+→ open with Q Graph
+→ source-grounded question
+→ follow-up conversation and branches
+→ whole-conversation summary
+→ verified learning memory
+→ explainable next action
+→ constrained study plan
 ```
 
-The agent logic, connectors, controllers, and interface are separated so that future integrations can support LTI, Blackboard, OneRoster, PeopleSoft, or other LMS/SIS platforms.
+Memury supports three connected modes:
 
-See [Architecture](docs/memury/ARCHITECTURE.md) for details.
+1. **Direct** — start from a document or question and get a grounded explanation.
+2. **Review** — return to fading knowledge through the original source and conversation.
+3. **Continuous** — let verified activity and reflections update the learning plan over time.
+
+## Direct server upgrade
+
+The repository includes a self-contained upgrade kit for an existing Docker Compose Canvas installation compatible with `canvas.memury.net`:
+
+```text
+deploy/memury-canvas-upgrade-20260816.tar.gz
+deploy/memury-canvas-upgrade-20260816.tar.gz.sha256
+deploy/memury-canvas-20260816/
+```
+
+The kit expects the existing Canvas Compose root at `/opt/canvas-lms`, a running container named `canvas-lms`, and at least 2.5 GB combined available memory and swap. Override the root with `CANVAS_ROOT` when necessary.
+
+```bash
+cd deploy
+shasum -a 256 -c memury-canvas-upgrade-20260816.tar.gz.sha256
+sudo mkdir -p /opt/memury-releases
+sudo tar -xzf memury-canvas-upgrade-20260816.tar.gz -C /opt/memury-releases
+cd /opt/memury-releases/memury-canvas-20260816
+sha256sum -c SHA256SUMS
+chmod +x scripts/*.sh
+sudo ./scripts/deploy.sh
+sudo ./scripts/set-demo-password.sh
+```
+
+When the password script prompts, enter the public demo password shown above. The deploy script performs a zero-fuzz patch check, creates rollback metadata and a PostgreSQL volume backup, builds the release image, runs additive migrations, seeds the demo student, switches the Canvas service, and executes health verification.
+
+Rollback is available from the extracted kit:
+
+```bash
+sudo ./scripts/rollback.sh
+```
+
+See [the upgrade-kit guide](deploy/memury-canvas-20260816/README.md) and [release metadata](deploy/memury-canvas-20260816/RELEASE.md) for the exact assumptions and safety boundary.
 
 ## Repository map
 
@@ -75,40 +88,24 @@ See [Architecture](docs/memury/ARCHITECTURE.md) for details.
 app/controllers/memury_controller.rb
 app/services/memury/
 ui/features/memury/
+deploy/memury-canvas-20260816/
+site/                         # Memury public site
+slides/                       # synchronized HTML deck and PDF
 docs/memury/
 README_MEMURY.md
-README_CANVAS_UPSTREAM.md
 ```
 
-Important documentation:
+Further documentation:
 
-- [Detailed Memury setup and development guide](README_MEMURY.md)
+- [Memury development guide](README_MEMURY.md)
 - [Architecture](docs/memury/ARCHITECTURE.md)
 - [Demo script](docs/memury/DEMO_SCRIPT.md)
 - [Decision log](docs/memury/DECISION_LOG.md)
-- [Original Canvas README](README_CANVAS_UPSTREAM.md)
+- [Preserved Canvas upstream README](README_CANVAS_UPSTREAM.md)
 
-## Demo data and real data
+## Development
 
-The current MVP uses real Canvas data for the signed-in student’s accessible courses, assignments, and submission summaries.
-
-The following elements are currently simulated and must remain clearly labeled in the interface:
-
-- SIS class schedule;
-- demo exam event;
-- predefined diagnostic questions;
-- selected demo learning evidence.
-
-Official Canvas deadlines must remain distinguishable from Memury-generated plans and user overrides.
-
-## Local setup
-
-Canvas LMS has a substantial development environment. Review the official Canvas setup documentation before starting:
-
-- [Canvas LMS repository](https://github.com/instructure/canvas-lms)
-- [Canvas Quick Start](https://github.com/instructure/canvas-lms/wiki/Quick-Start)
-
-After preparing a compatible Canvas development environment:
+Canvas LMS has a substantial development environment. Use the Compose-based workflow documented in [README_MEMURY.md](README_MEMURY.md):
 
 ```bash
 cp .env.memury.example .env.memury
@@ -118,53 +115,39 @@ docker compose run --rm -e LOGIN=memury.student@example.test web bundle exec rak
 docker compose run --rm web yarn build:watch
 ```
 
-Create or configure the demo student account described in [README_MEMURY.md](README_MEMURY.md), enable the Memury feature for the relevant root account, sign in as that student, and open **Memury** from the Canvas global navigation.
+The standalone public site can be developed independently:
 
-For the complete walkthrough, see [Demo script](docs/memury/DEMO_SCRIPT.md).
+```bash
+cd site
+npm install
+npm run dev
+npm run build
+```
 
 ## Verification status
 
-Completed static checks:
+For the `2026-08-16-qgraph-apple-r3` release:
 
-- `git diff --check`;
-- review for accidentally committed credentials and local environment files;
-- review for unintended grade writes;
-- review for random learner-state updates;
-- presence checks for Memury routes, navigation, services, migration, tests, and documentation.
+- 13 focused Memury frontend tests passed.
+- Ruby syntax checks passed for the changed backend services and controller.
+- The upgrade kit passed shell syntax, overlay consistency, and checksum verification.
+- The deployed server passed authenticated login and health verification.
+- A two-turn Q Graph conversation preserved context and produced a whole-chat summary.
+- The synchronized 19-page presentation passed fixed-stage checks at desktop and phone viewports; the PDF is 16:9.
 
-The following verification still needs to be completed in a fully configured Canvas environment:
-
-- database migration execution;
-- targeted RSpec test execution;
-- TypeScript type checking and frontend build;
-- browser-based end-to-end demo;
-- accessibility testing.
-
-This repository should therefore be treated as an early Canvas-first MVP implementation, not yet as a production deployment.
+These checks establish a deployable product baseline, not evidence of learning efficacy. Long-term transfer, accessibility, security, privacy, and real-user outcomes still require dedicated evaluation.
 
 ## Safety and data boundaries
 
-- Connectors are scoped to the current authenticated student.
-- Memury does not accept arbitrary student IDs from the client.
-- Canvas grades, submissions, and instructor data are treated as read-only.
-- LMS or SIS passwords are not stored.
-- External, inferred, and simulated information retains provenance metadata.
+- Connectors are scoped to the currently authenticated student.
+- Memury does not accept arbitrary student IDs from the browser client.
+- Official grades, submissions, and instructor records remain read-only.
+- Inferred and simulated information retains provenance metadata.
+- Unverified Q Graph exploration cannot directly drive academic risk or mastery.
 - Memury-generated plans are not presented as official instructor deadlines.
-- The interface must identify Memury as an independent prototype.
-
-## Roadmap
-
-- Run and validate the complete MVP in the official Canvas development environment.
-- Map Canvas Modules, Pages, Calendar, Planner, feedback, and assessment scope.
-- Add conflict detection and editable study-block controls.
-- Expand the server-side AI provider with richer curriculum-specific prompt packs.
-- Replace demo SIS data with authorized institutional connectors.
-- Add browser E2E, accessibility, security, and privacy tests.
 
 ## Upstream and license
 
-Memury is built on [Instructure Canvas LMS](https://github.com/instructure/canvas-lms).
-
-The upstream Canvas source, copyright notices, and license terms remain applicable. Canvas LMS is distributed under the GNU Affero General Public License v3.0. See [LICENSE](LICENSE) and the preserved [Canvas upstream README](README_CANVAS_UPSTREAM.md).
+Memury is built on [Instructure Canvas LMS](https://github.com/instructure/canvas-lms). The upstream Canvas source, copyright notices, and GNU AGPL v3 terms remain applicable. See [LICENSE](LICENSE) and [README_CANVAS_UPSTREAM.md](README_CANVAS_UPSTREAM.md).
 
 “Canvas” and “Instructure” belong to their respective owners. Memury is not affiliated with or endorsed by Instructure.

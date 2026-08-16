@@ -1,0 +1,12 @@
+---
+memury:
+  type: setting
+  state: hidden
+  applies_to: RootAccount
+  display_name: Memury
+  description: Enables the goal-aware adaptive learning agent prototype for students.
+  environments:
+    development:
+      state: allowed_on
+    ci:
+      state: allowed_on

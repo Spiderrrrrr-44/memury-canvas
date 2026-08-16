@@ -7,7 +7,7 @@
 import {beforeEach, describe, expect, it} from 'vitest'
 import {initializeTheme} from '../theme'
 
-describe('Memury dark theme', () => {
+describe('Memury Canvas theme', () => {
   beforeEach(() => {
     document.documentElement.removeAttribute('data-theme')
     document.documentElement.removeAttribute('data-memury-theme')
@@ -15,11 +15,9 @@ describe('Memury dark theme', () => {
     document.body.classList.remove('memury-ui-surface')
   })
 
-  it('always applies the product dark theme to the document', () => {
-    expect(initializeTheme()).toBe('dark')
-    expect(document.documentElement.dataset.theme).toBe('dark')
-    expect(document.documentElement.dataset.memuryTheme).toBe('dark')
-    expect(document.documentElement.style.colorScheme).toBe('dark')
-    expect(document.body).toHaveClass('memury-ui-surface')
+  it('inherits Canvas without changing the global document theme', () => {
+    expect(initializeTheme()).toBe('canvas')
+    expect(document.documentElement.dataset.memuryTheme).toBeUndefined()
+    expect(document.body).not.toHaveClass('memury-ui-surface')
   })
 })

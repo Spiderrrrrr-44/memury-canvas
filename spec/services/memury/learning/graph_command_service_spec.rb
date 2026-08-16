@@ -36,7 +36,30 @@ describe Memury::Learning::GraphCommandService do
     expect(@session.steps.where(kind: "student_question").count).to eq(1)
     expect(branch.evidences.count).to eq(1)
     expect(branch.evidences.first).not_to be_verified
-    expect(@session.reload.metadata["current_learning_graph_node_id"]).to eq("step-#{branch.id}")
+    response = @session.steps.find_by!(kind: "tutor_response")
+    expect(response.output.fetch("answer")).to be_present
+    expect(@session.reload.summary).to be_present
+    expect(@session.metadata["current_learning_graph_node_id"]).to eq("step-#{response.id}")
+  end
+
+  it "starts a document conversation when no prior learning Session exists" do
+    @session.destroy!
+
+    response = described_class.continue!(
+      user: @user,
+      assignment_ref: "new-document-7",
+      parent_node_id: "document-root",
+      question: "这段话的核心条件是什么？",
+      request_id: "request-document-001",
+      document_title: "Lecture note 7",
+      document_excerpt: "A force does work only through displacement.",
+      locale: "zh-CN"
+    )
+
+    expect(response.kind).to eq("tutor_response")
+    expect(response.session.objective).to eq("Lecture note 7")
+    expect(response.session.steps.pluck(:kind)).to eq(%w[student_question tutor_response])
+    expect(response.session.summary).to be_present
   end
 
   it "rejects a parent from another Session" do
