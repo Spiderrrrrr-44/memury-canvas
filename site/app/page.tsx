@@ -12,6 +12,7 @@ export default function Home() {
         <div className="nav-links">
           <a href="#q-graph">Q Graph</a>
           <a href="#memory">Learning Memory</a>
+          <a href="#submission">Materials</a>
           <a href={githubUrl}>GitHub</a>
         </div>
         <a className="nav-cta" href={canvasUrl}>
@@ -268,6 +269,15 @@ export default function Home() {
       </section>
 
       <section className="trust-section">
+        <div id="submission" className="submission-panel">
+          <p className="eyebrow">COMPETITION MATERIALS · READY</p>
+          <h2>Review the complete Memury submission.</h2>
+          <p>Project brief, proposal PDF, product video, source code, and the executable Canvas deployment kit.</p>
+          <div className="trust-links">
+            <a className="button primary" href="/downloads/Memury_Submission_Pack_2026-08-16.zip">Download the full pack ↓</a>
+            <a className="button secondary" href="/downloads/Memury_Demo_2m16s.mp4">Watch the demo ↓</a>
+          </div>
+        </div>
         <p className="eyebrow">BUILT IN THE OPEN</p>
         <h2>Canvas-native by design.</h2>
         <p>
@@ -290,6 +300,7 @@ export default function Home() {
         <div>
           <a href="#q-graph">Q Graph</a>
           <a href="#memory">Learning Memory</a>
+          <a href="#submission">Materials</a>
           <a href={githubUrl}>GitHub</a>
         </div>
       </footer>

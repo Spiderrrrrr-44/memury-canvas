@@ -710,6 +710,21 @@ a {
   letter-spacing: -0.055em;
 }
 
+.submission-panel {
+  max-width: 980px;
+  margin: 0 auto 96px;
+  padding: 56px;
+  border: 1px solid rgba(20, 20, 24, .1);
+  border-radius: 32px;
+  background: rgba(255, 255, 255, .78);
+  box-shadow: 0 24px 80px rgba(45, 53, 70, .09);
+}
+
+.submission-panel > p:not(.eyebrow) {
+  max-width: 700px;
+  margin: 20px auto 32px;
+}
+
 .mode-grid {
   display: grid;
   grid-template-columns: repeat(3, 1fr);

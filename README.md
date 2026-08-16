@@ -17,6 +17,10 @@ The current release is deployed on the 4-core / 4 GB Memury server:
 
 These credentials are intentionally public and belong only to the isolated demo student. Do not reuse this password for a real Canvas, email, LMS, or administrator account. Demo data may be reset at any time.
 
+## Competition submission
+
+The direct-upload initial-round materials are in [`submission/2026-08-16`](submission/2026-08-16), with a complete ZIP at [`submission/Memury_初赛提交材料_2026-08-16.zip`](submission/Memury_初赛提交材料_2026-08-16.zip). The pack includes the under-500-character project brief, proposal PDF, Demo video, prototype instructions, and executable Canvas deployment kit.
+
 ## What is available now
 
 - Canvas-native `/memury` workspace with the Canvas shell preserved.
